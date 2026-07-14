@@ -1,0 +1,77 @@
+<!DOCTYPE html> 
+<html lang="en"> 
+<head> 
+  <meta charset="UTF-8" /> 
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" /> 
+  <title>Order Food</title> 
+  <link rel="stylesheet" href="/css/styles.css" /> 
+</head> 
+<body> 
+  <div class="app"> 
+    <div class="topbar"> 
+      <h1>Order Food</h1> 
+      <small id="restaurantNameTop"></small> 
+    </div> 
+ 
+    <!-- STEP 1: keypad --> 
+    <section id="keypadScreen" class="screen keypad-wrap"> 
+      <div class="code-display" id="codeDisplay"></div> 
+      <div class="code-hint">Enter your 3-digit restaurant code</div> 
+      <div class="keypad"> 
+        <div class="key" data-k="1">1</div> 
+        <div class="key" data-k="2">2</div> 
+        <div class="key" data-k="3">3</div> 
+        <div class="key" data-k="4">4</div> 
+        <div class="key" data-k="5">5</div> 
+        <div class="key" data-k="6">6</div> 
+        <div class="key" data-k="7">7</div> 
+        <div class="key" data-k="8">8</div> 
+        <div class="key" data-k="9">9</div> 
+        <div class="key" data-k="del">&larr;</div> 
+        <div class="key" data-k="0">0</div> 
+        <div class="key action" data-k="ok">Go</div> 
+      </div> 
+      <div class="error center" id="keypadError"></div> 
+    </section> 
+ 
+    <!-- STEP 2: menu --> 
+    <section id="menuScreen" class="screen hidden"> 
+      <div id="geoBanner" class="banner warn">Checking your locationâ€¦</div> 
+      <div id="menuList"></div> 
+      <div class="spacer"></div> 
+      <div id="cartBar" class="cart-bar hidden"> 
+        <span id="cartSummary">0 items</span> 
+        <strong id="cartTotal">â‚¹0</strong> 
+      </div> 
+    </section> 
+ 
+    <!-- STEP 3: checkout --> 
+    <section id="checkoutScreen" class="screen hidden"> 
+      <button class="ghost" id="backToMenu">&larr; Back to menu</button> 
+      <h3>Your order</h3> 
+      <div id="checkoutItems" class="card"></div> 
+      <label>Your name</label> 
+      <input id="custName" placeholder="Name" /> 
+      <label>Phone number</label> 
+      <input id="custPhone" placeholder="Phone" inputmode="numeric" /> 
+      <div class="error" id="checkoutError"></div> 
+      <button class="primary" id="payBtn">Pay & Place Order</button> 
+    </section> 
+ 
+    <!-- STEP 4: success --> 
+    <section id="successScreen" class="screen hidden center"> 
+      <h2 style="color: var(--ok)">âœ“ Order placed!</h2> 
+      <p class="muted">The restaurant has received your order.</p> 
+      <div id="successDetail" class="card"></div> 
+      <button class="primary" onclick="location.reload()">Place another order</button> 
+    </section> 
+  </div> 
+ 
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script> 
+  <script src="/js/api.js"></script> 
+  <script src="/js/customer.js"></script> 
+</body> 
+</html> 
+ 
+
+ 

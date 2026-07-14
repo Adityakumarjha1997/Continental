@@ -1,0 +1,255 @@
+/* Customer flow: keypad -> menu -> (geofence) -> checkout -> pay -> success */ 
+(function () { 
+  const state = { 
+    code: '', 
+    restaurant: null, 
+    menu: [], 
+    cart: {}, // itemId -> qty 
+    location: null, 
+    withinRange: false, 
+  }; 
+ 
+  const $ = (id) => document.getElementById(id); 
+  const money = (n) => 'â‚¹' + Number(n).toFixed(0); 
+ 
+  /* ---------------------------- Keypad ---------------------------- */ 
+  const codeDisplay = $('codeDisplay'); 
+  document.querySelectorAll('.key').forEach((key) => { 
+    key.addEventListener('click', () => onKey(key.dataset.k)); 
+  }); 
+ 
+  function onKey(k) { 
+    $('keypadError').textContent = ''; 
+    if (k === 'del') { 
+      state.code = state.code.slice(0, -1); 
+    } else if (k === 'ok') { 
+      if (state.code.length === 3) return loadRestaurant(); 
+      return; 
+    } else if (/^\d$/.test(k) && state.code.length < 3) { 
+      state.code += k; 
+    } 
+    codeDisplay.textContent = state.code.replace(/./g, (c) => c); 
+    if (state.code.length === 3) loadRestaurant(); 
+  } 
+ 
+  async function loadRestaurant() { 
+    try { 
+      const data = await API.get('/public/restaurants/' + state.code + '/menu'); 
+      state.restaurant = data.restaurant; 
+      state.menu = data.menu; 
+      $('restaurantNameTop').textContent = data.restaurant.name; 
+      show('menuScreen'); 
+      renderMenu(); 
+      checkLocation(); 
+    } catch (e) { 
+      $('keypadError').textContent = e.message; 
+      state.code = ''; 
+      codeDisplay.textContent = ''; 
+    } 
+  } 
+ 
+  /* ---------------------------- Menu ------------------------------ */ 
+  function renderMenu() { 
+    const list = $('menuList'); 
+    const groups = {}; 
+    state.menu.forEach((m) => { 
+      (groups[m.category] = groups[m.category] || []).push(m); 
+    }); 
+ 
+    list.innerHTML = ''; 
+    Object.keys(groups).forEach((cat) => { 
+      const title = document.createElement('div'); 
+      title.className = 'category-title'; 
+      title.textContent = cat; 
+      list.appendChild(title); 
+ 
+      groups[cat].forEach((item) => { 
+        const row = document.createElement('div'); 
+        row.className = 'menu-item' + (item.available ? '' : ' unavailable'); 
+        const qty = state.cart[item.id] || 0; 
+        row.innerHTML = 
+          '<div><div class="name">' + esc(item.name) + '</div>' + 
+          '<div class="price">' + money(item.price) + 
+          (item.available ? '' : ' Â· sold out') + '</div></div>'; 
+ 
+        const controls = document.createElement('div'); 
+        if (item.available) { 
+          controls.className = 'qty'; 
+          controls.innerHTML = 
+            '<button class="round-btn" data-dec="' + item.id + '">âˆ’</button>' + 
+            '<span>' + qty + '</span>' + 
+            '<button class="round-btn brand" data-inc="' + item.id + '">+</button>'; 
+        } 
+        row.appendChild(controls); 
+        list.appendChild(row); 
+      }); 
+    }); 
+ 
+    list.querySelectorAll('[data-inc]').forEach((b) => 
+      b.addEventListener('click', () => changeQty(b.dataset.inc, 1)) 
+    ); 
+    list.querySelectorAll('[data-dec]').forEach((b) => 
+      b.addEventListener('click', () => changeQty(b.dataset.dec, -1)) 
+    ); 
+    renderCartBar(); 
+  } 
+ 
+  function changeQty(id, delta) { 
+    const next = (state.cart[id] || 0) + delta; 
+    if (next <= 0) delete state.cart[id]; 
+    else state.cart[id] = next; 
+    renderMenu(); 
+  } 
+ 
+  function cartLines() { 
+    return Object.keys(state.cart).map((id) => { 
+      const m = state.menu.find((x) => x.id === id); 
+      return { itemId: id, name: m.name, price: m.price, qty: state.cart[id] }; 
+    }); 
+  } 
+ 
+  function cartTotal() { 
+    return cartLines().reduce((s, l) => s + l.price * l.qty, 0); 
+  } 
+ 
+  function renderCartBar() { 
+    const lines = cartLines(); 
+    const count = lines.reduce((s, l) => s + l.qty, 0); 
+    const bar = $('cartBar'); 
+    if (count === 0) return bar.classList.add('hidden'); 
+    bar.classList.remove('hidden'); 
+    $('cartSummary').textContent = count + (count === 1 ? ' item' : ' items'); 
+    $('cartTotal').textContent = money(cartTotal()); 
+    bar.onclick = goCheckout; 
+  } 
+ 
+  /* ------------------------- Geolocation -------------------------- */ 
+  async function checkLocation() { 
+    const banner = $('geoBanner'); 
+    try { 
+      state.location = await getPosition(); 
+      const res = await API.post('/public/restaurants/' + state.code + '/geocheck', state.location); 
+      state.withinRange = res.withinRange; 
+      if (res.withinRange) { 
+        banner.className = 'banner ok'; 
+        banner.textContent = 'You are near ' + state.restaurant.name + ' â€” you can order.'; 
+      } else { 
+        banner.className = 'banner danger'; 
+        banner.textContent = 
+          'You are ~' + res.distanceMeters + 'm away. You must be within ' + 
+          res.radiusMeters + 'm to order (browsing only).'; 
+      } 
+    } catch (e) { 
+      state.withinRange = false; 
+      banner.className = 'banner danger'; 
+      banner.textContent = 'Location unavailable â€” ordering is blocked. Enable location and reload.'; 
+    } 
+    renderCartBar(); 
+  } 
+ 
+  /* --------------------------- Checkout --------------------------- */ 
+  function goCheckout() { 
+    if (!state.withinRange) { 
+      alert('You must be within range of the restaurant to order.'); 
+      return; 
+    } 
+    if (cartLines().length === 0) return; 
+    const box = $('checkoutItems'); 
+    box.innerHTML = 
+      cartLines() 
+        .map((l) => '<div class="menu-item"><span>' + esc(l.name) + ' Ã— ' + l.qty + 
+          '</span><strong>' + money(l.price * l.qty) + '</strong></div>') 
+        .join('') + 
+      '<div class="menu-item"><strong>Total</strong><strong>' + money(cartTotal()) + '</strong></div>'; 
+    show('checkoutScreen'); 
+  } 
+ 
+  $('backToMenu').addEventListener('click', () => show('menuScreen')); 
+ 
+  $('payBtn').addEventListener('click', async () => { 
+    $('checkoutError').textContent = ''; 
+    const name = $('custName').value.trim(); 
+    const phone = $('custPhone').value.trim(); 
+    if (!name) return ($('checkoutError').textContent = 'Please enter your name'); 
+ 
+    $('payBtn').disabled = true; 
+    try { 
+      const data = await API.post('/public/orders', { 
+        restaurantCode: state.code, 
+        items: cartLines().map((l) => ({ itemId: l.itemId, qty: l.qty })), 
+        customer: { name, phone }, 
+        location: state.location, 
+      }); 
+      await pay(data, { name, phone }); 
+    } catch (e) { 
+      $('checkoutError').textContent = e.message; 
+      $('payBtn').disabled = false; 
+    } 
+  }); 
+ 
+  function pay(data, customer) { 
+    return new Promise((resolve) => { 
+      if (data.provider === 'razorpay' && data.keyId) { 
+        const rzp = new Razorpay({ 
+          key: data.keyId, 
+          order_id: data.paymentOrder.id, 
+          amount: data.paymentOrder.amount, 
+          currency: data.paymentOrder.currency, 
+          name: state.restaurant.name, 
+          description: 'Food order', 
+          prefill: { name: customer.name, contact: customer.phone }, 
+          theme: { color: '#e23744' }, 
+          handler: async (resp) => { 
+            try { 
+              await API.post('/public/orders/' + data.order.id + '/confirm', resp); 
+              showSuccess(data.order); 
+            } catch (e) { 
+              $('checkoutError').textContent = e.message; 
+              $('payBtn').disabled = false; 
+            } 
+            resolve(); 
+          }, 
+          modal: { 
+            ondismiss: () => { 
+              $('checkoutError').textContent = 'Payment cancelled.'; 
+              $('payBtn').disabled = false; 
+              resolve(); 
+            }, 
+          }, 
+        }); 
+        rzp.open(); 
+      } else { 
+        // Free mock mode â€” confirm immediately (no real payment window) 
+        API.post('/public/orders/' + data.order.id + '/confirm', {}) 
+          .then(() => showSuccess(data.order)) 
+          .catch((e) => { 
+            $('checkoutError').textContent = e.message; 
+            $('payBtn').disabled = false; 
+          }) 
+          .finally(resolve); 
+      } 
+    }); 
+  } 
+ 
+  function showSuccess(order) { 
+    $('successDetail').innerHTML = 
+      '<div class="muted">Order ID</div><div>' + order.id.slice(0, 8) + '</div>' + 
+      '<div class="muted" style="margin-top:8px">Total</div><div>' + money(order.total) + '</div>'; 
+    show('successScreen'); 
+  } 
+ 
+  /* --------------------------- Helpers ---------------------------- */ 
+  function show(id) { 
+    ['keypadScreen', 'menuScreen', 'checkoutScreen', 'successScreen'].forEach((s) => 
+      $(s).classList.toggle('hidden', s !== id) 
+    ); 
+  } 
+  function esc(s) { 
+    return String(s).replace(/[&<>"]/g, (c) => 
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]) 
+    ); 
+  } 
+})(); 
+ 
+
+ 

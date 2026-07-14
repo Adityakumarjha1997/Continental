@@ -1,0 +1,30 @@
+# Render Blueprint. When you connect this repo to Render, it reads this file and
+# creates the service automatically. You can also create the service manually in
+# the dashboard - see DEPLOY.md. Set the secret values (marked sync: false) in
+# the Render dashboard, NOT here.
+services:
+  - type: web
+    name: food-order-app
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: JWT_SECRET
+        generateValue: true # Render generates a strong random secret
+      - key: ADMIN_PASSWORD
+        sync: false # set in dashboard
+      - key: MONGODB_URI
+        sync: false # set in dashboard (from MongoDB Atlas)
+      - key: MONGODB_DB
+        value: foodorder
+      - key: CURRENCY
+        value: INR
+      # Payments run in free "mock" mode unless you add Razorpay keys below.
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false

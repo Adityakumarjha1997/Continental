@@ -1,0 +1,56 @@
+<!DOCTYPE html> 
+<html lang="en"> 
+<head> 
+  <meta charset="UTF-8" /> 
+  <meta name="viewport" content="width=device-width, initial-scale=1" /> 
+  <title>Owner Dashboard</title> 
+  <link rel="stylesheet" href="/css/styles.css" /> 
+</head> 
+<body> 
+  <div class="app wide"> 
+    <div class="topbar"> 
+      <h1>Owner Dashboard</h1> 
+      <small id="statusDot">â— offline</small> 
+    </div> 
+ 
+    <!-- Login --> 
+    <section id="loginScreen" class="screen"> 
+      <div class="card" style="max-width:360px;margin:40px auto"> 
+        <h3 class="center">Restaurant Login</h3> 
+        <label>3-digit code</label> 
+        <input id="ownerCode" maxlength="3" inputmode="numeric" placeholder="e.g. 481" /> 
+        <label>Password</label> 
+        <input id="ownerPass" type="password" placeholder="Password" /> 
+        <div class="error" id="loginError"></div> 
+        <button class="primary" id="loginBtn">Log in</button> 
+      </div> 
+    </section> 
+ 
+    <!-- Dashboard --> 
+    <section id="dashScreen" class="screen hidden"> 
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"> 
+        <div> 
+          <strong id="rName"></strong> 
+          <span class="muted"> Â· code <span id="rCode"></span></span> 
+        </div> 
+        <div> 
+          <label style="display:inline"> 
+            <input type="checkbox" id="soundToggle" checked style="width:auto;margin:0 6px 0 0" /> 
+            Sound 
+          </label> 
+          <button class="ghost" id="logoutBtn">Log out</button> 
+        </div> 
+      </div> 
+      <div id="emptyState" class="banner warn">Waiting for ordersâ€¦</div> 
+      <div class="orders-grid" id="ordersGrid"></div> 
+    </section> 
+  </div> 
+ 
+  <script src="/socket.io/socket.io.js"></script> 
+  <script src="/js/api.js"></script> 
+  <script src="/js/owner.js"></script> 
+</body> 
+</html> 
+ 
+
+ 

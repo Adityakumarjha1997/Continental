@@ -1,0 +1,112 @@
+<!DOCTYPE html> 
+<html lang="en"> 
+<head> 
+  <meta charset="UTF-8" /> 
+  <meta name="viewport" content="width=device-width, initial-scale=1" /> 
+  <title>Admin Panel</title> 
+  <link rel="stylesheet" href="/css/styles.css" /> 
+</head> 
+<body> 
+  <div class="app wide"> 
+    <div class="topbar"> 
+      <h1>Admin Panel</h1> 
+      <small>company owner</small> 
+    </div> 
+ 
+    <!-- Login --> 
+    <section id="loginScreen" class="screen"> 
+      <div class="card" style="max-width:360px;margin:40px auto"> 
+        <h3 class="center">Admin Login</h3> 
+        <label>Admin password</label> 
+        <input id="adminPass" type="password" placeholder="Password" /> 
+        <div class="error" id="loginError"></div> 
+        <button class="primary" id="loginBtn">Log in</button> 
+      </div> 
+    </section> 
+ 
+    <!-- Panel --> 
+    <section id="panelScreen" class="screen hidden"> 
+      <div style="display:flex;justify-content:space-between;align-items:center"> 
+        <h3>Restaurants</h3> 
+        <button class="ghost" id="logoutBtn">Log out</button> 
+      </div> 
+ 
+      <div id="restaurantList"></div> 
+ 
+      <div class="card"> 
+        <h4>Add a restaurant</h4> 
+        <div class="grid-2"> 
+          <div> 
+            <label>3-digit code</label> 
+            <input id="nCode" maxlength="3" inputmode="numeric" placeholder="481" /> 
+          </div> 
+          <div> 
+            <label>Name</label> 
+            <input id="nName" placeholder="Restaurant name" /> 
+          </div> 
+        </div> 
+        <label>Description</label> 
+        <input id="nDesc" placeholder="Short description" /> 
+        <div class="grid-2"> 
+          <div> 
+            <label>Owner password</label> 
+            <input id="nOwnerPass" placeholder="Owner login password" /> 
+          </div> 
+          <div> 
+            <label>UPI ID (optional)</label> 
+            <input id="nUpi" placeholder="name@upi" /> 
+          </div> 
+        </div> 
+        <div class="grid-2"> 
+          <div> 
+            <label>Latitude</label> 
+            <input id="nLat" inputmode="decimal" placeholder="12.9716" /> 
+          </div> 
+          <div> 
+            <label>Longitude</label> 
+            <input id="nLng" inputmode="decimal" placeholder="77.5946" /> 
+          </div> 
+        </div> 
+        <div class="grid-2"> 
+          <div> 
+            <label>Radius (metres)</label> 
+            <input id="nRadius" inputmode="numeric" placeholder="100" /> 
+          </div> 
+          <div style="display:flex;align-items:flex-end"> 
+            <button class="ghost" id="useLocBtn" style="width:100%">ðŸ“ Use my current location</button> 
+          </div> 
+        </div> 
+        <div class="error" id="addError"></div> 
+        <button class="primary" id="addBtn">Create restaurant</button> 
+      </div> 
+ 
+      <!-- Menu editor --> 
+      <div id="menuEditor" class="card hidden"> 
+        <div style="display:flex;justify-content:space-between;align-items:center"> 
+          <h4 id="menuTitle">Menu</h4> 
+          <button class="ghost" id="closeMenu">Close</button> 
+        </div> 
+        <table> 
+          <thead><tr><th>Item</th><th>Price</th><th>Category</th><th>Available</th><th></th></tr></thead> 
+          <tbody id="menuBody"></tbody> 
+        </table> 
+        <h5 style="margin-top:16px">Add item</h5> 
+        <div class="grid-2"> 
+          <div><label>Name</label><input id="mName" placeholder="Item name" /></div> 
+          <div><label>Price</label><input id="mPrice" inputmode="decimal" placeholder="199" /></div> 
+        </div> 
+        <label>Category</label> 
+        <input id="mCategory" placeholder="e.g. Main Course" /> 
+        <div class="error" id="menuError"></div> 
+        <button class="primary" id="addItemBtn">Add item</button> 
+      </div> 
+    </section> 
+  </div> 
+ 
+  <script src="/js/api.js"></script> 
+  <script src="/js/admin.js"></script> 
+</body> 
+</html> 
+ 
+
+ 
