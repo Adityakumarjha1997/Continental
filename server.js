@@ -43,16 +43,16 @@ store
   .then(() => ensureSeed())
   .then(() => {
     server.listen(config.port, () => {
-      console.log('
-  Food ordering server is running');
+      console.log(`
+  Food ordering server is running`);
       console.log('  --------------------------------------------------');
       console.log(`  Customer app : http://localhost:${config.port}/`);
       console.log(`  Owner login  : http://localhost:${config.port}/owner.html`);
       console.log(`  Admin panel  : http://localhost:${config.port}/admin.html`);
       console.log(`  Data store   : ${store.backendName()}`);
       console.log(`  Payment mode : ${payment.name}`);
-      console.log('  --------------------------------------------------
-');
+      console.log(`  --------------------------------------------------
+`);
     });
   })
   .catch((err) => {
