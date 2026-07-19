@@ -198,7 +198,7 @@
           name: state.restaurant.name, 
           description: 'Food order', 
           prefill: { name: customer.name, contact: customer.phone }, 
-          theme: { color: '#e23744' }, 
+          theme: { color: '#6366f1' }, 
           handler: async (resp) => { 
             try { 
               await API.post('/public/orders/' + data.order.id + '/confirm', resp); 
@@ -250,6 +250,3 @@
     ); 
   } 
 })(); 
- 
-
- 
