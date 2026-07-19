@@ -1,6 +1,7 @@
+ 
 /* ===================================================================== 
    Avenza-inspired design system 
-   Indigo â†’ violet â†’ pink gradients, glassmorphism, soft rounded surfaces. 
+   Indigo -> violet -> pink gradients, glassmorphism, soft rounded surfaces. 
    Class/ID names are kept identical to the original so all JS keeps working. 
    ===================================================================== */ 
 :root { 
@@ -10,36 +11,36 @@
   --brand-3: #ec4899; 
   --brand: #6366f1;           /* legacy single-colour alias */ 
   --brand-dark: #4f46e5; 
- 
+
   --grad: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899); 
   --grad-2: linear-gradient(135deg, #6366f1, #8b5cf6); 
   --grad-soft: linear-gradient(135deg, #ede9fe, #fce7f3); 
- 
+
   --bg: #f8f9fc; 
   --card: rgba(255, 255, 255, 0.88); 
   --card-solid: #ffffff; 
-  --ink: #1e1b4b;             /* deep indigo â€” headings */ 
+  --ink: #1e1b4b;             /* deep indigo -- headings */ 
   --text: #111827; 
   --muted: #9ca3af; 
   --border: #eef0f6; 
   --border-strong: #e5e7eb; 
- 
+
   --ok: #16a34a; 
   --warn: #d97706; 
   --danger: #dc2626; 
- 
+
   --shadow: 0 8px 32px rgba(99, 102, 241, 0.10); 
   --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.05); 
   --shadow-brand: 0 6px 20px rgba(99, 102, 241, 0.35); 
- 
+
   --r-sm: 12px; 
   --r-md: 16px; 
   --r-lg: 20px; 
   --r-xl: 24px; 
 } 
- 
+
 * { box-sizing: border-box; } 
- 
+
 body { 
   margin: 0; 
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; 
@@ -50,8 +51,8 @@ body {
   position: relative; 
   overflow-x: hidden; 
 } 
- 
-/* Ambient blob decorations â€” purely CSS, no HTML changes needed */ 
+
+/* Ambient blob decorations -- purely CSS, no HTML changes needed */ 
 body::before, 
 body::after { 
   content: ""; 
@@ -73,7 +74,7 @@ body::after {
   background: radial-gradient(circle, #f472b6, transparent 70%); 
   opacity: 0.28; 
 } 
- 
+
 .app { 
   max-width: 480px; 
   margin: 0 auto; 
@@ -83,7 +84,7 @@ body::after {
   z-index: 1; 
 } 
 .app.wide { max-width: 1040px; } 
- 
+
 /* ------------------------------- Topbar ------------------------------- */ 
 .topbar { 
   background: var(--grad); 
@@ -110,7 +111,7 @@ body::after {
   font-weight: 500; 
   letter-spacing: 0.04em; 
 } 
- 
+
 /* Brand wordmark: "Avenza" large, "by Astravia" small underneath */ 
 .brand { 
   display: flex; 
@@ -130,10 +131,10 @@ body::after {
   opacity: 0.85; 
   margin-top: 3px; 
 } 
- 
+
 .screen { padding: 22px; } 
 .hidden { display: none !important; } 
- 
+
 /* ------------------------------- Keypad ------------------------------- */ 
 .keypad-wrap { text-align: center; padding-top: 40px; } 
 .code-display { 
@@ -190,7 +191,7 @@ body::after {
   border-color: transparent; 
   box-shadow: var(--shadow-brand); 
 } 
- 
+
 /* ---------------------------- Banners --------------------------------- */ 
 .banner { 
   padding: 13px 16px; 
@@ -203,7 +204,7 @@ body::after {
 .banner.ok { background: #e7f6ec; color: var(--ok); border-color: #bbf7d0; } 
 .banner.warn { background: #fff7ed; color: var(--warn); border-color: #fed7aa; } 
 .banner.danger { background: #fdecec; color: var(--danger); border-color: #fecaca; } 
- 
+
 /* ---------------------------- Menu ------------------------------------ */ 
 .category-title { 
   font-size: 12px; 
@@ -230,7 +231,7 @@ body::after {
 .menu-item .name { font-weight: 700; color: var(--text); } 
 .menu-item .price { color: var(--brand-1); font-size: 14px; font-weight: 800; margin-top: 2px; } 
 .menu-item.unavailable { opacity: 0.5; } 
- 
+
 .qty { display: flex; align-items: center; gap: 12px; } 
 .round-btn { 
   width: 34px; height: 34px; border-radius: 50%; 
@@ -245,7 +246,7 @@ body::after {
   background: var(--grad-2); color: #fff; border-color: transparent; 
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3); 
 } 
- 
+
 /* ---------------------------- Cart bar -------------------------------- */ 
 .cart-bar { 
   position: fixed; 
@@ -261,7 +262,7 @@ body::after {
   box-shadow: var(--shadow-brand); 
   z-index: 20; 
 } 
- 
+
 /* ------------------------- Buttons + forms ---------------------------- */ 
 button.primary { 
   background: var(--grad); 
@@ -282,7 +283,7 @@ button.ghost {
   transition: box-shadow 0.15s ease; 
 } 
 button.ghost:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); } 
- 
+
 input, select, textarea { 
   width: 100%; padding: 12px 14px; border: 1.5px solid var(--border-strong); 
   border-radius: var(--r-sm); font-size: 14px; margin-bottom: 12px; background: #fff; 
@@ -295,7 +296,7 @@ input:focus, select:focus, textarea:focus {
 } 
 label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 5px; font-weight: 500; } 
 .error { color: var(--danger); font-size: 14px; margin: 8px 0; min-height: 18px; font-weight: 500; } 
- 
+
 .card { 
   background: var(--card); 
   backdrop-filter: blur(20px); 
@@ -304,7 +305,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 5px
   border-radius: var(--r-xl); padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow); 
 } 
 .card h3, .card h4 { color: var(--ink); margin-top: 0; } 
- 
+
 /* ------------------------- Owner dashboard ---------------------------- */ 
 .orders-grid { 
   display: grid; 
@@ -333,7 +334,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 5px
 .order-items li { margin-bottom: 3px; } 
 .status-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; } 
 .status-row button { font-size: 12px; padding: 6px 10px; } 
- 
+
 /* ------------------------------- Utils -------------------------------- */ 
 .muted { color: var(--muted); } 
 .center { text-align: center; } 
@@ -342,3 +343,52 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 5px
 table { width: 100%; border-collapse: collapse; font-size: 14px; } 
 th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); } 
 th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; } 
+
+/* ------------------------- Login screen ------------------------------- */ 
+.login-wrap { padding-top: 26px; } 
+.login-card { 
+  max-width: 380px; 
+  margin: 6px auto 0; 
+  background: var(--card); 
+  backdrop-filter: blur(20px); 
+  -webkit-backdrop-filter: blur(20px); 
+  border: 1.5px solid rgba(255, 255, 255, 0.95); 
+  border-radius: var(--r-xl); 
+  padding: 26px 24px; 
+  box-shadow: var(--shadow); 
+  display: flex; 
+  flex-direction: column; 
+  gap: 12px; 
+} 
+.login-hero { text-align: center; margin-bottom: 4px; } 
+.login-logo { 
+  width: 62px; height: 62px; border-radius: 18px; margin: 0 auto 12px; 
+  display: flex; align-items: center; justify-content: center; 
+  background: var(--grad); box-shadow: var(--shadow-brand); 
+} 
+.login-hero h2 { margin: 0; color: var(--ink); font-size: 22px; font-weight: 800; letter-spacing: -0.02em; } 
+.login-hero p { margin: 4px 0 0; font-size: 14px; } 
+.btn-google { 
+  display: flex; align-items: center; justify-content: center; gap: 10px; 
+  width: 100%; padding: 12px; border-radius: var(--r-md); 
+  background: #fff; border: 1.5px solid var(--border-strong); color: #374151; 
+  font-size: 14px; font-weight: 600; cursor: pointer; 
+  transition: box-shadow 0.15s ease; 
+} 
+.btn-google:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); } 
+.divider { display: flex; align-items: center; gap: 12px; color: #d1d5db; font-size: 12px; } 
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); } 
+
+/* ---------- Hotel name in topbar (shown after code entry) ------------- */ 
+.hotel { display: flex; flex-direction: column; line-height: 1.05; min-width: 0; } 
+.hotel-label { 
+  font-size: 10px; font-weight: 600; letter-spacing: 0.14em; 
+  text-transform: uppercase; opacity: 0.82; 
+} 
+.hotel-name { 
+  font-size: 20px; font-weight: 800; letter-spacing: -0.01em; 
+  max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
+} 
+/* After a table code is entered: hotel name moves left, brand moves right */ 
+.topbar.menu-mode .hotel { order: 1; align-items: flex-start; } 
+.topbar.menu-mode .brand { order: 2; align-items: flex-end; } 

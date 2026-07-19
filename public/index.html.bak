@@ -1,3 +1,4 @@
+ 
 <!DOCTYPE html> 
 <html lang="en"> 
 <head> 
@@ -15,7 +16,7 @@
       </div> 
       <small id="restaurantNameTop"></small> 
     </div> 
- 
+
     <!-- STEP 1: keypad --> 
     <section id="keypadScreen" class="screen keypad-wrap"> 
       <div class="code-display" id="codeDisplay"></div> 
@@ -36,18 +37,18 @@
       </div> 
       <div class="error center" id="keypadError"></div> 
     </section> 
- 
+
     <!-- STEP 2: menu --> 
     <section id="menuScreen" class="screen hidden"> 
-      <div id="geoBanner" class="banner warn">Checking your locationâ€¦</div> 
+      <div id="geoBanner" class="banner warn">Checking your location&hellip;</div> 
       <div id="menuList"></div> 
       <div class="spacer"></div> 
       <div id="cartBar" class="cart-bar hidden"> 
         <span id="cartSummary">0 items</span> 
-        <strong id="cartTotal">â‚¹0</strong> 
+        <strong id="cartTotal">&#8377;0</strong> 
       </div> 
     </section> 
- 
+
     <!-- STEP 3: checkout --> 
     <section id="checkoutScreen" class="screen hidden"> 
       <button class="ghost" id="backToMenu">&larr; Back to menu</button> 
@@ -60,16 +61,16 @@
       <div class="error" id="checkoutError"></div> 
       <button class="primary" id="payBtn">Pay & Place Order</button> 
     </section> 
- 
+
     <!-- STEP 4: success --> 
     <section id="successScreen" class="screen hidden center"> 
-      <h2 style="color: var(--ok)">âœ“ Order placed!</h2> 
+      <h2 style="color: var(--ok)">&#10003; Order placed!</h2> 
       <p class="muted">The restaurant has received your order.</p> 
       <div id="successDetail" class="card"></div> 
       <button class="primary" onclick="location.reload()">Place another order</button> 
     </section> 
   </div> 
- 
+
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script> 
   <script src="/js/api.js"></script> 
   <script src="/js/customer.js"></script> 
