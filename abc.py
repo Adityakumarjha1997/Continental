@@ -1,4 +1,33 @@
- 
+#!/usr/bin/env python3 
+
+r""" 
+apply-update.py -- writes the listed files straight into the deployed project. 
+
+Run on the deployment machine, pointing at the project root (the Continental folder): 
+
+    python apply-update.py "C:\Users\Aditya kumar jha\OneDrive\Documents\Continental" 
+
+(or just `python apply-update.py` if TARGET_DIR below is already correct). 
+Then push so Render redeploys: 
+
+    git add -A 
+    git commit -m "fix character encoding" 
+    git push 
+
+A "<file>.bak" backup is written before each overwrite. File contents are 
+stored ASCII-safe (\uXXXX escapes / HTML entities) so no transfer or editor can 
+corrupt special characters like the rupee sign again. 
+""" 
+
+import os 
+import sys 
+import shutil 
+
+TARGET_DIR = r"C:\Users\Aditya kumar jha\OneDrive\Documents\Continental" 
+MAKE_BACKUP = True 
+
+FILES = [ 
+    ("public/js/customer.js", r''' 
 /* Customer flow: keypad -> menu -> (geofence) -> checkout -> pay -> success */ 
 (function () { 
   const state = { 
@@ -251,3 +280,115 @@
     ); 
   } 
 })(); 
+'''), 
+
+    ("public/index.html", r''' 
+<!DOCTYPE html> 
+<html lang="en"> 
+<head> 
+  <meta charset="UTF-8" /> 
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" /> 
+  <title>Avenza by Astravia</title> 
+  <link rel="stylesheet" href="/css/styles.css" /> 
+</head> 
+<body> 
+  <div class="app"> 
+    <div class="topbar"> 
+      <div class="brand"> 
+        <span class="brand-name">Avenza</span> 
+        <span class="brand-sub">by Astravia</span> 
+      </div> 
+      <small id="restaurantNameTop"></small> 
+    </div> 
+
+    <!-- STEP 1: keypad --> 
+    <section id="keypadScreen" class="screen keypad-wrap"> 
+      <div class="code-display" id="codeDisplay"></div> 
+      <div class="code-hint">Enter your 3-digit restaurant code</div> 
+      <div class="keypad"> 
+        <div class="key" data-k="1">1</div> 
+        <div class="key" data-k="2">2</div> 
+        <div class="key" data-k="3">3</div> 
+        <div class="key" data-k="4">4</div> 
+        <div class="key" data-k="5">5</div> 
+        <div class="key" data-k="6">6</div> 
+        <div class="key" data-k="7">7</div> 
+        <div class="key" data-k="8">8</div> 
+        <div class="key" data-k="9">9</div> 
+        <div class="key" data-k="del">&larr;</div> 
+        <div class="key" data-k="0">0</div> 
+        <div class="key action" data-k="ok">Go</div> 
+      </div> 
+      <div class="error center" id="keypadError"></div> 
+    </section> 
+
+    <!-- STEP 2: menu --> 
+    <section id="menuScreen" class="screen hidden"> 
+      <div id="geoBanner" class="banner warn">Checking your location&hellip;</div> 
+      <div id="menuList"></div> 
+      <div class="spacer"></div> 
+      <div id="cartBar" class="cart-bar hidden"> 
+        <span id="cartSummary">0 items</span> 
+        <strong id="cartTotal">&#8377;0</strong> 
+      </div> 
+    </section> 
+
+    <!-- STEP 3: checkout --> 
+    <section id="checkoutScreen" class="screen hidden"> 
+      <button class="ghost" id="backToMenu">&larr; Back to menu</button> 
+      <h3>Your order</h3> 
+      <div id="checkoutItems" class="card"></div> 
+      <label>Your name</label> 
+      <input id="custName" placeholder="Name" /> 
+      <label>Phone number</label> 
+      <input id="custPhone" placeholder="Phone" inputmode="numeric" /> 
+      <div class="error" id="checkoutError"></div> 
+      <button class="primary" id="payBtn">Pay & Place Order</button> 
+    </section> 
+
+    <!-- STEP 4: success --> 
+    <section id="successScreen" class="screen hidden center"> 
+      <h2 style="color: var(--ok)">&#10003; Order placed!</h2> 
+      <p class="muted">The restaurant has received your order.</p> 
+      <div id="successDetail" class="card"></div> 
+      <button class="primary" onclick="location.reload()">Place another order</button> 
+    </section> 
+  </div> 
+
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script> 
+  <script src="/js/api.js"></script> 
+  <script src="/js/customer.js"></script> 
+</body> 
+</html> 
+'''), 
+
+] 
+
+def apply(target_dir): 
+    if not FILES: 
+        print("Nothing to apply: FILES is empty.") 
+        return 
+    if not os.path.isdir(target_dir): 
+        sys.exit("Target folder does not exist:\n  " + target_dir) 
+    written = 0 
+    for rel_path, content in FILES: 
+        abs_path = os.path.join(target_dir, *rel_path.split("/")) 
+        os.makedirs(os.path.dirname(abs_path) or ".", exist_ok=True) 
+        existed = os.path.exists(abs_path) 
+        if existed and MAKE_BACKUP: 
+            shutil.copy2(abs_path, abs_path + ".bak") 
+        text = content[1:] if content.startswith("\n") else content 
+        with open(abs_path, "w", encoding="utf-8", newline="\n") as fh: 
+            fh.write(text) 
+        written += 1 
+        print(("Overwrote: " if existed else "Created:   ") + rel_path) 
+    print("\nDone. %d file(s) written to:\n  %s" % (written, target_dir)) 
+    if MAKE_BACKUP: 
+        print('Backups saved as "<file>.bak" next to each changed file.') 
+
+def main(): 
+    target = sys.argv[1] if len(sys.argv) > 1 else TARGET_DIR 
+    apply(target) 
+
+if __name__ == "__main__": 
+    main()

@@ -1,962 +1,787 @@
-Project Updates - UI/UX Redesign (Avenza style) 
+#!/usr/bin/env python3 
 
-Generated 2026-07-19 13:41  -  5 files changed 
+r""" 
 
-Overview 
-
-This document describes a UI/UX redesign applied to the food-ordering project. The goal was to bring the live app in line with the new Figma design ("Avenza" style) while changing NOTHING about the backend, the API, or the app's behaviour. 
+apply-update.py  --  writes the listed files straight into the deployed project. 
 
  
 
-The new visual language: 
+Run on the deployment machine, pointing at the project root (the Continental 
 
-  1. Brand identity switched from a single flat red (#e23744) to an indigo -> violet -> pink gradient (#6366f1 -> #8b5cf6 -> #ec4899). 
-
-  2. Soft, "glassmorphism" surfaces: translucent white cards with backdrop blur, generous rounded corners, and layered soft shadows. 
-
-  3. A light gradient page background (#eef2ff -> #f5f3ff -> #fdf2f8) with ambient blurred colour "blobs" added purely through CSS (no HTML changes required). 
-
-  4. Bolder typography with deep-indigo headings, gradient accents on the keypad code display and prices, and more tactile hover/press states on keys, buttons and menu items. 
-
-  5. Product branding added to every page header: the wordmark "Avenza" with a smaller "by Astravia" subtitle underneath (the customer, owner and admin topbars all carry it, and the browser tab titles were updated to match). 
+folder): 
 
  
 
-KEY DESIGN POINT: the redesign is almost entirely contained in ONE shared stylesheet, public/css/styles.css. Because all three frontends (customer index.html, owner.html, admin.html) already share that stylesheet and every existing CSS class name and element id was preserved, the customer / owner / admin pages are ALL restyled at once with no markup or JavaScript logic changes. The only JavaScript touched is a single colour literal (the Razorpay checkout modal theme) so the payment window matches the new brand. 
-
-How to apply 
-
-HOW TO APPLY THESE UPDATES (instructions for an AI agent or a human): 
+    python apply-update.py "C:\Users\Aditya kumar jha\OneDrive\Documents\Continental" 
 
  
 
-For each file section below, overwrite the existing file at the given relative path with the exact content shown. All files here are marked [MODIFIED] (they already exist and are replaced entirely). No new files, no new dependencies. 
+(or just `python apply-update.py` if TARGET_DIR below is already correct). 
+
+Then push so Render redeploys: 
 
  
 
-After applying: 
+    git add -A 
 
-  - No npm install is required (no dependencies changed). 
+    git commit -m "fix character encoding" 
 
-  - No environment variables or secrets changed. 
-
-  - Restart / redeploy the app as usual and hard-refresh the browser (Ctrl+F5) so the new CSS is picked up (the stylesheet is cached aggressively). 
+    git push 
 
  
 
-WHAT TO RE-TEST after deploying: 
+A "<file>.bak" backup is written before each overwrite. File contents are 
 
-  - Customer flow: keypad code entry, menu rendering per category, quantity +/- buttons, the floating cart bar, checkout screen, and the Razorpay/mock payment + success screen. 
+stored ASCII-safe (\uXXXX escapes / HTML entities) so no transfer or editor can 
 
-  - Owner dashboard: login, live order cards, the "flash" animation on a new order, and status pills (paid/pending). 
+corrupt special characters like the rupee sign again. 
 
-  - Admin panel: login, restaurant list, "Add a restaurant" form, and the menu editor table. 
+""" 
 
-  - Confirm the layout is unbroken on a narrow mobile width (the customer app is capped at 480px). 
+import os 
 
-Changed files (summary) 
+import sys 
 
-[MODIFIED]  public\css\styles.css 
-
-[MODIFIED]  public\index.html 
-
-[MODIFIED]  public\owner.html 
-
-[MODIFIED]  public\admin.html 
-
-[MODIFIED]  public\js\customer.js 
+import shutil 
 
  
 
-[MODIFIED]  public\css\styles.css 
+TARGET_DIR = r"C:\Users\Aditya kumar jha\OneDrive\Documents\Continental" 
 
-Complete visual redesign in the shared stylesheet. New gradient brand tokens, glassmorphism cards, ambient CSS background blobs (body::before / body::after), rounded surfaces, gradient keypad display and prices, and richer hover/focus/active states. Also adds the .brand / .brand-name / .brand-sub wordmark styles (large "Avenza", small "by Astravia"). Every original class name and id was preserved, so all three pages and all JavaScript hooks continue to work unchanged. 
-
-Full file content 
-
-/* ===================================================================== 
-   Avenza-inspired design system 
-   Indigo â†’ violet â†’ pink gradients, glassmorphism, soft rounded surfaces. 
-   Class/ID names are kept identical to the original so all JS keeps working. 
-   ===================================================================== */ 
-:root { 
-  /* Brand gradient stops */ 
-  --brand-1: #6366f1; 
-  --brand-2: #8b5cf6; 
-  --brand-3: #ec4899; 
-  --brand: #6366f1;           /* legacy single-colour alias */ 
-  --brand-dark: #4f46e5; 
- 
-  --grad: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899); 
-  --grad-2: linear-gradient(135deg, #6366f1, #8b5cf6); 
-  --grad-soft: linear-gradient(135deg, #ede9fe, #fce7f3); 
- 
-  --bg: #f8f9fc; 
-  --card: rgba(255, 255, 255, 0.88); 
-  --card-solid: #ffffff; 
-  --ink: #1e1b4b;             /* deep indigo â€” headings */ 
-  --text: #111827; 
-  --muted: #9ca3af; 
-  --border: #eef0f6; 
-  --border-strong: #e5e7eb; 
- 
-  --ok: #16a34a; 
-  --warn: #d97706; 
-  --danger: #dc2626; 
- 
-  --shadow: 0 8px 32px rgba(99, 102, 241, 0.10); 
-  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.05); 
-  --shadow-brand: 0 6px 20px rgba(99, 102, 241, 0.35); 
- 
-  --r-sm: 12px; 
-  --r-md: 16px; 
-  --r-lg: 20px; 
-  --r-xl: 24px; 
-} 
- 
-* { box-sizing: border-box; } 
- 
-body { 
-  margin: 0; 
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; 
-  color: var(--text); 
-  -webkit-tap-highlight-color: transparent; 
-  background: linear-gradient(145deg, #eef2ff 0%, #f5f3ff 50%, #fdf2f8 100%); 
-  min-height: 100vh; 
-  position: relative; 
-  overflow-x: hidden; 
-} 
- 
-/* Ambient blob decorations â€” purely CSS, no HTML changes needed */ 
-body::before, 
-body::after { 
-  content: ""; 
-  position: fixed; 
-  border-radius: 50%; 
-  filter: blur(80px); 
-  pointer-events: none; 
-  z-index: 0; 
-} 
-body::before { 
-  top: -80px; left: -80px; 
-  width: 320px; height: 320px; 
-  background: radial-gradient(circle, #818cf8, transparent 70%); 
-  opacity: 0.35; 
-} 
-body::after { 
-  bottom: -60px; right: -60px; 
-  width: 340px; height: 340px; 
-  background: radial-gradient(circle, #f472b6, transparent 70%); 
-  opacity: 0.28; 
-} 
- 
-.app { 
-  max-width: 480px; 
-  margin: 0 auto; 
-  min-height: 100vh; 
-  background: transparent; 
-  position: relative; 
-  z-index: 1; 
-} 
-.app.wide { max-width: 1040px; } 
- 
-/* ------------------------------- Topbar ------------------------------- */ 
-.topbar { 
-  background: var(--grad); 
-  color: #fff; 
-  padding: 18px 22px; 
-  display: flex; 
-  align-items: center; 
-  justify-content: space-between; 
-  position: sticky; 
-  top: 0; 
-  z-index: 30; 
-  border-bottom-left-radius: var(--r-xl); 
-  border-bottom-right-radius: var(--r-xl); 
-  box-shadow: 0 8px 28px rgba(99, 102, 241, 0.28); 
-} 
-.topbar h1 { 
-  font-size: 19px; 
-  margin: 0; 
-  font-weight: 800; 
-  letter-spacing: -0.02em; 
-} 
-.topbar small { 
-  opacity: 0.9; 
-  font-weight: 500; 
-  letter-spacing: 0.04em; 
-} 
- 
-/* Brand wordmark: "Avenza" large, "by Astravia" small underneath */ 
-.brand { 
-  display: flex; 
-  flex-direction: column; 
-  line-height: 1.02; 
-} 
-.brand-name { 
-  font-size: 23px; 
-  font-weight: 900; 
-  letter-spacing: -0.03em; 
-} 
-.brand-sub { 
-  font-size: 10px; 
-  font-weight: 500; 
-  letter-spacing: 0.16em; 
-  text-transform: uppercase; 
-  opacity: 0.85; 
-  margin-top: 3px; 
-} 
- 
-.screen { padding: 22px; } 
-.hidden { display: none !important; } 
- 
-/* ------------------------------- Keypad ------------------------------- */ 
-.keypad-wrap { text-align: center; padding-top: 40px; } 
-.code-display { 
-  font-size: 46px; 
-  letter-spacing: 20px; 
-  font-weight: 900; 
-  min-height: 60px; 
-  margin: 14px 0 8px; 
-  padding-left: 20px; 
-  background: var(--grad); 
-  -webkit-background-clip: text; 
-  background-clip: text; 
-  -webkit-text-fill-color: transparent; 
-} 
-.code-hint { 
-  color: var(--muted); 
-  margin-bottom: 28px; 
-  font-size: 14px; 
-  font-weight: 500; 
-} 
-.keypad { 
-  display: grid; 
-  grid-template-columns: repeat(3, 1fr); 
-  gap: 14px; 
-  max-width: 320px; 
-  margin: 0 auto; 
-  padding: 20px; 
-  border-radius: var(--r-xl); 
-  background: rgba(255, 255, 255, 0.8); 
-  backdrop-filter: blur(20px); 
-  -webkit-backdrop-filter: blur(20px); 
-  border: 1.5px solid rgba(255, 255, 255, 0.95); 
-  box-shadow: var(--shadow); 
-} 
-.key { 
-  background: rgba(255, 255, 255, 0.9); 
-  border: 1.5px solid #f3f4f6; 
-  border-radius: var(--r-md); 
-  font-size: 24px; 
-  font-weight: 700; 
-  color: var(--ink); 
-  padding: 18px 0; 
-  cursor: pointer; 
-  box-shadow: var(--shadow-sm); 
-  user-select: none; 
-  transition: transform 0.12s ease, box-shadow 0.12s ease; 
-} 
-.key:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15); } 
-.key:active { transform: scale(0.94); } 
-.key.wide { grid-column: span 1; } 
-.key.action { 
-  background: var(--grad-2); 
-  color: #fff; 
-  border-color: transparent; 
-  box-shadow: var(--shadow-brand); 
-} 
- 
-/* ---------------------------- Banners --------------------------------- */ 
-.banner { 
-  padding: 13px 16px; 
-  border-radius: var(--r-sm); 
-  margin-bottom: 14px; 
-  font-size: 14px; 
-  font-weight: 500; 
-  border: 1px solid transparent; 
-} 
-.banner.ok { background: #e7f6ec; color: var(--ok); border-color: #bbf7d0; } 
-.banner.warn { background: #fff7ed; color: var(--warn); border-color: #fed7aa; } 
-.banner.danger { background: #fdecec; color: var(--danger); border-color: #fecaca; } 
- 
-/* ---------------------------- Menu ------------------------------------ */ 
-.category-title { 
-  font-size: 12px; 
-  text-transform: uppercase; 
-  letter-spacing: 1.2px; 
-  font-weight: 800; 
-  color: var(--brand-2); 
-  margin: 22px 0 10px; 
-} 
-.menu-item { 
-  background: var(--card-solid); 
-  border: 1.5px solid #f3f4f6; 
-  border-radius: var(--r-md); 
-  padding: 14px 16px; 
-  margin-bottom: 10px; 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  gap: 12px; 
-  box-shadow: var(--shadow-sm); 
-  transition: box-shadow 0.15s ease, transform 0.15s ease; 
-} 
-.menu-item:hover { box-shadow: 0 4px 16px rgba(99, 102, 241, 0.1); transform: translateY(-1px); } 
-.menu-item .name { font-weight: 700; color: var(--text); } 
-.menu-item .price { color: var(--brand-1); font-size: 14px; font-weight: 800; margin-top: 2px; } 
-.menu-item.unavailable { opacity: 0.5; } 
- 
-.qty { display: flex; align-items: center; gap: 12px; } 
-.round-btn { 
-  width: 34px; height: 34px; border-radius: 50%; 
-  border: 1.5px solid #e0e7ff; 
-  background: var(--grad-soft); 
-  color: var(--brand-1); 
-  font-size: 18px; font-weight: 800; cursor: pointer; line-height: 1; 
-  transition: transform 0.12s ease; 
-} 
-.round-btn:active { transform: scale(0.9); } 
-.round-btn.brand { 
-  background: var(--grad-2); color: #fff; border-color: transparent; 
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3); 
-} 
- 
-/* ---------------------------- Cart bar -------------------------------- */ 
-.cart-bar { 
-  position: fixed; 
-  bottom: 16px; left: 50%; transform: translateX(-50%); 
-  width: calc(100% - 32px); max-width: 448px; 
-  background: var(--grad); 
-  color: #fff; 
-  padding: 16px 22px; 
-  border-radius: var(--r-lg); 
-  display: flex; justify-content: space-between; align-items: center; 
-  cursor: pointer; 
-  font-weight: 700; 
-  box-shadow: var(--shadow-brand); 
-  z-index: 20; 
-} 
- 
-/* ------------------------- Buttons + forms ---------------------------- */ 
-button.primary { 
-  background: var(--grad); 
-  color: #fff; border: none; 
-  padding: 14px 18px; border-radius: var(--r-md); font-size: 15px; font-weight: 800; 
-  letter-spacing: 0.01em; 
-  cursor: pointer; width: 100%; 
-  box-shadow: var(--shadow-brand); 
-  transition: box-shadow 0.18s ease, transform 0.12s ease; 
-} 
-button.primary:hover { box-shadow: 0 10px 28px rgba(99, 102, 241, 0.5); } 
-button.primary:active { transform: translateY(1px); } 
-button.primary:disabled { background: #cbd0d6; box-shadow: none; cursor: not-allowed; } 
-button.ghost { 
-  background: #fff; border: 1.5px solid var(--border-strong); 
-  padding: 9px 14px; border-radius: var(--r-sm); cursor: pointer; font-size: 13px; 
-  font-weight: 600; color: #4b5563; 
-  transition: box-shadow 0.15s ease; 
-} 
-button.ghost:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); } 
- 
-input, select, textarea { 
-  width: 100%; padding: 12px 14px; border: 1.5px solid var(--border-strong); 
-  border-radius: var(--r-sm); font-size: 14px; margin-bottom: 12px; background: #fff; 
-  transition: border-color 0.15s ease, box-shadow 0.15s ease; 
-} 
-input:focus, select:focus, textarea:focus { 
-  outline: none; 
-  border-color: var(--brand-2); 
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15); 
-} 
-label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 5px; font-weight: 500; } 
-.error { color: var(--danger); font-size: 14px; margin: 8px 0; min-height: 18px; font-weight: 500; } 
- 
-.card { 
-  background: var(--card); 
-  backdrop-filter: blur(20px); 
-  -webkit-backdrop-filter: blur(20px); 
-  border: 1.5px solid rgba(255, 255, 255, 0.95); 
-  border-radius: var(--r-xl); padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow); 
-} 
-.card h3, .card h4 { color: var(--ink); margin-top: 0; } 
- 
-/* ------------------------- Owner dashboard ---------------------------- */ 
-.orders-grid { 
-  display: grid; 
-  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); 
-  gap: 16px; 
-} 
-.order-card { 
-  background: var(--card-solid); border: 1.5px solid #f3f4f6; 
-  border-radius: var(--r-lg); padding: 16px; box-shadow: var(--shadow); 
-  border-left: 5px solid var(--brand-2); 
-} 
-.order-card.flash { animation: flash 1.2s ease; } 
-@keyframes flash { 
-  0% { background: #f5f3ff; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.35); } 
-  100% { background: #fff; box-shadow: var(--shadow); } 
-} 
-.order-card h4 { margin: 0 0 6px; display: flex; justify-content: space-between; color: var(--ink); } 
-.pill { 
-  display: inline-block; font-size: 11px; padding: 4px 10px; 
-  border-radius: 20px; background: #eef1f4; color: var(--muted); 
-  text-transform: capitalize; font-weight: 700; 
-} 
-.pill.paid { background: #e7f6ec; color: var(--ok); } 
-.pill.pending { background: #fff7ed; color: var(--warn); } 
-.order-items { font-size: 14px; margin: 8px 0; } 
-.order-items li { margin-bottom: 3px; } 
-.status-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; } 
-.status-row button { font-size: 12px; padding: 6px 10px; } 
- 
-/* ------------------------------- Utils -------------------------------- */ 
-.muted { color: var(--muted); } 
-.center { text-align: center; } 
-.spacer { height: 90px; } 
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } 
-table { width: 100%; border-collapse: collapse; font-size: 14px; } 
-th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); } 
-th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; } 
- 
+MAKE_BACKUP = True 
 
  
 
-[MODIFIED]  public\index.html 
+FILES = [ 
 
-Customer page: topbar heading replaced with the "Avenza / by Astravia" wordmark; the restaurantNameTop element (used by JS) is kept on the right. Browser tab title set to "Avenza by Astravia". 
-
-Full file content 
-
-<!DOCTYPE html> 
-<html lang="en"> 
-<head> 
-  <meta charset="UTF-8" /> 
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" /> 
-  <title>Avenza by Astravia</title> 
-  <link rel="stylesheet" href="/css/styles.css" /> 
-</head> 
-<body> 
-  <div class="app"> 
-    <div class="topbar"> 
-      <div class="brand"> 
-        <span class="brand-name">Avenza</span> 
-        <span class="brand-sub">by Astravia</span> 
-      </div> 
-      <small id="restaurantNameTop"></small> 
-    </div> 
- 
-    <!-- STEP 1: keypad --> 
-    <section id="keypadScreen" class="screen keypad-wrap"> 
-      <div class="code-display" id="codeDisplay"></div> 
-      <div class="code-hint">Enter your 3-digit restaurant code</div> 
-      <div class="keypad"> 
-        <div class="key" data-k="1">1</div> 
-        <div class="key" data-k="2">2</div> 
-        <div class="key" data-k="3">3</div> 
-        <div class="key" data-k="4">4</div> 
-        <div class="key" data-k="5">5</div> 
-        <div class="key" data-k="6">6</div> 
-        <div class="key" data-k="7">7</div> 
-        <div class="key" data-k="8">8</div> 
-        <div class="key" data-k="9">9</div> 
-        <div class="key" data-k="del">&larr;</div> 
-        <div class="key" data-k="0">0</div> 
-        <div class="key action" data-k="ok">Go</div> 
-      </div> 
-      <div class="error center" id="keypadError"></div> 
-    </section> 
- 
-    <!-- STEP 2: menu --> 
-    <section id="menuScreen" class="screen hidden"> 
-      <div id="geoBanner" class="banner warn">Checking your locationâ€¦</div> 
-      <div id="menuList"></div> 
-      <div class="spacer"></div> 
-      <div id="cartBar" class="cart-bar hidden"> 
-        <span id="cartSummary">0 items</span> 
-        <strong id="cartTotal">â‚¹0</strong> 
-      </div> 
-    </section> 
- 
-    <!-- STEP 3: checkout --> 
-    <section id="checkoutScreen" class="screen hidden"> 
-      <button class="ghost" id="backToMenu">&larr; Back to menu</button> 
-      <h3>Your order</h3> 
-      <div id="checkoutItems" class="card"></div> 
-      <label>Your name</label> 
-      <input id="custName" placeholder="Name" /> 
-      <label>Phone number</label> 
-      <input id="custPhone" placeholder="Phone" inputmode="numeric" /> 
-      <div class="error" id="checkoutError"></div> 
-      <button class="primary" id="payBtn">Pay & Place Order</button> 
-    </section> 
- 
-    <!-- STEP 4: success --> 
-    <section id="successScreen" class="screen hidden center"> 
-      <h2 style="color: var(--ok)">âœ“ Order placed!</h2> 
-      <p class="muted">The restaurant has received your order.</p> 
-      <div id="successDetail" class="card"></div> 
-      <button class="primary" onclick="location.reload()">Place another order</button> 
-    </section> 
-  </div> 
- 
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script> 
-  <script src="/js/api.js"></script> 
-  <script src="/js/customer.js"></script> 
-</body> 
-</html> 
- 
-
- 
-
-[MODIFIED]  public\owner.html 
-
-Owner dashboard: topbar heading replaced with the "Avenza / by Astravia Â· Owner" wordmark; the statusDot element (used by JS) is kept on the right. Tab title updated. 
-
-Full file content 
-
-<!DOCTYPE html> 
-<html lang="en"> 
-<head> 
-  <meta charset="UTF-8" /> 
-  <meta name="viewport" content="width=device-width, initial-scale=1" /> 
-  <title>Avenza by Astravia Â· Owner</title> 
-  <link rel="stylesheet" href="/css/styles.css" /> 
-</head> 
-<body> 
-  <div class="app wide"> 
-    <div class="topbar"> 
-      <div class="brand"> 
-        <span class="brand-name">Avenza</span> 
-        <span class="brand-sub">by Astravia Â· Owner</span> 
-      </div> 
-      <small id="statusDot">â— offline</small> 
-    </div> 
- 
-    <!-- Login --> 
-    <section id="loginScreen" class="screen"> 
-      <div class="card" style="max-width:360px;margin:40px auto"> 
-        <h3 class="center">Restaurant Login</h3> 
-        <label>3-digit code</label> 
-        <input id="ownerCode" maxlength="3" inputmode="numeric" placeholder="e.g. 481" /> 
-        <label>Password</label> 
-        <input id="ownerPass" type="password" placeholder="Password" /> 
-        <div class="error" id="loginError"></div> 
-        <button class="primary" id="loginBtn">Log in</button> 
-      </div> 
-    </section> 
- 
-    <!-- Dashboard --> 
-    <section id="dashScreen" class="screen hidden"> 
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"> 
-        <div> 
-          <strong id="rName"></strong> 
-          <span class="muted"> Â· code <span id="rCode"></span></span> 
-        </div> 
-        <div> 
-          <label style="display:inline"> 
-            <input type="checkbox" id="soundToggle" checked style="width:auto;margin:0 6px 0 0" /> 
-            Sound 
-          </label> 
-          <button class="ghost" id="logoutBtn">Log out</button> 
-        </div> 
-      </div> 
-      <div id="emptyState" class="banner warn">Waiting for ordersâ€¦</div> 
-      <div class="orders-grid" id="ordersGrid"></div> 
-    </section> 
-  </div> 
- 
-  <script src="/socket.io/socket.io.js"></script> 
-  <script src="/js/api.js"></script> 
-  <script src="/js/owner.js"></script> 
-</body> 
-</html> 
- 
-
- 
-
-[MODIFIED]  public\admin.html 
-
-Admin panel: topbar heading replaced with the "Avenza / by Astravia" wordmark; the role label moved to the right small text ("Admin Panel Â· company owner"). Tab title updated. 
-
-Full file content 
-
-<!DOCTYPE html> 
-<html lang="en"> 
-<head> 
-  <meta charset="UTF-8" /> 
-  <meta name="viewport" content="width=device-width, initial-scale=1" /> 
-  <title>Avenza by Astravia Â· Admin</title> 
-  <link rel="stylesheet" href="/css/styles.css" /> 
-</head> 
-<body> 
-  <div class="app wide"> 
-    <div class="topbar"> 
-      <div class="brand"> 
-        <span class="brand-name">Avenza</span> 
-        <span class="brand-sub">by Astravia</span> 
-      </div> 
-      <small>Admin Panel Â· company owner</small> 
-    </div> 
- 
-    <!-- Login --> 
-    <section id="loginScreen" class="screen"> 
-      <div class="card" style="max-width:360px;margin:40px auto"> 
-        <h3 class="center">Admin Login</h3> 
-        <label>Admin password</label> 
-        <input id="adminPass" type="password" placeholder="Password" /> 
-        <div class="error" id="loginError"></div> 
-        <button class="primary" id="loginBtn">Log in</button> 
-      </div> 
-    </section> 
- 
-    <!-- Panel --> 
-    <section id="panelScreen" class="screen hidden"> 
-      <div style="display:flex;justify-content:space-between;align-items:center"> 
-        <h3>Restaurants</h3> 
-        <button class="ghost" id="logoutBtn">Log out</button> 
-      </div> 
- 
-      <div id="restaurantList"></div> 
- 
-      <div class="card"> 
-        <h4>Add a restaurant</h4> 
-        <div class="grid-2"> 
-          <div> 
-            <label>3-digit code</label> 
-            <input id="nCode" maxlength="3" inputmode="numeric" placeholder="481" /> 
-          </div> 
-          <div> 
-            <label>Name</label> 
-            <input id="nName" placeholder="Restaurant name" /> 
-          </div> 
-        </div> 
-        <label>Description</label> 
-        <input id="nDesc" placeholder="Short description" /> 
-        <div class="grid-2"> 
-          <div> 
-            <label>Owner password</label> 
-            <input id="nOwnerPass" placeholder="Owner login password" /> 
-          </div> 
-          <div> 
-            <label>UPI ID (optional)</label> 
-            <input id="nUpi" placeholder="name@upi" /> 
-          </div> 
-        </div> 
-        <div class="grid-2"> 
-          <div> 
-            <label>Latitude</label> 
-            <input id="nLat" inputmode="decimal" placeholder="12.9716" /> 
-          </div> 
-          <div> 
-            <label>Longitude</label> 
-            <input id="nLng" inputmode="decimal" placeholder="77.5946" /> 
-          </div> 
-        </div> 
-        <div class="grid-2"> 
-          <div> 
-            <label>Radius (metres)</label> 
-            <input id="nRadius" inputmode="numeric" placeholder="100" /> 
-          </div> 
-          <div style="display:flex;align-items:flex-end"> 
-            <button class="ghost" id="useLocBtn" style="width:100%">ðŸ“ Use my current location</button> 
-          </div> 
-        </div> 
-        <div class="error" id="addError"></div> 
-        <button class="primary" id="addBtn">Create restaurant</button> 
-      </div> 
- 
-      <!-- Menu editor --> 
-      <div id="menuEditor" class="card hidden"> 
-        <div style="display:flex;justify-content:space-between;align-items:center"> 
-          <h4 id="menuTitle">Menu</h4> 
-          <button class="ghost" id="closeMenu">Close</button> 
-        </div> 
-        <table> 
-          <thead><tr><th>Item</th><th>Price</th><th>Category</th><th>Available</th><th></th></tr></thead> 
-          <tbody id="menuBody"></tbody> 
-        </table> 
-        <h5 style="margin-top:16px">Add item</h5> 
-        <div class="grid-2"> 
-          <div><label>Name</label><input id="mName" placeholder="Item name" /></div> 
-          <div><label>Price</label><input id="mPrice" inputmode="decimal" placeholder="199" /></div> 
-        </div> 
-        <label>Category</label> 
-        <input id="mCategory" placeholder="e.g. Main Course" /> 
-        <div class="error" id="menuError"></div> 
-        <button class="primary" id="addItemBtn">Add item</button> 
-      </div> 
-    </section> 
-  </div> 
- 
-  <script src="/js/api.js"></script> 
-  <script src="/js/admin.js"></script> 
-</body> 
-</html> 
- 
-
- 
-
-[MODIFIED]  public\js\customer.js 
-
-Single-line change: the Razorpay checkout modal theme colour was updated from the old red (#e23744) to the new brand indigo (#6366f1) so the payment window matches the redesign. No logic changes. 
-
-Full file content 
+    ("public/js/customer.js", r''' 
 
 /* Customer flow: keypad -> menu -> (geofence) -> checkout -> pay -> success */ 
+
 (function () { 
-  const state = { 
-    code: '', 
-    restaurant: null, 
-    menu: [], 
-    cart: {}, // itemId -> qty 
-    location: null, 
-    withinRange: false, 
-  }; 
- 
-  const $ = (id) => document.getElementById(id); 
-  const money = (n) => 'â‚¹' + Number(n).toFixed(0); 
- 
-  /* ---------------------------- Keypad ---------------------------- */ 
-  const codeDisplay = $('codeDisplay'); 
-  document.querySelectorAll('.key').forEach((key) => { 
-    key.addEventListener('click', () => onKey(key.dataset.k)); 
-  }); 
- 
-  function onKey(k) { 
-    $('keypadError').textContent = ''; 
-    if (k === 'del') { 
-      state.code = state.code.slice(0, -1); 
-    } else if (k === 'ok') { 
-      if (state.code.length === 3) return loadRestaurant(); 
-      return; 
-    } else if (/^\d$/.test(k) && state.code.length < 3) { 
-      state.code += k; 
-    } 
-    codeDisplay.textContent = state.code.replace(/./g, (c) => c); 
-    if (state.code.length === 3) loadRestaurant(); 
-  } 
- 
-  async function loadRestaurant() { 
-    try { 
-      const data = await API.get('/public/restaurants/' + state.code + '/menu'); 
-      state.restaurant = data.restaurant; 
-      state.menu = data.menu; 
-      $('restaurantNameTop').textContent = data.restaurant.name; 
-      show('menuScreen'); 
-      renderMenu(); 
-      checkLocation(); 
-    } catch (e) { 
-      $('keypadError').textContent = e.message; 
-      state.code = ''; 
-      codeDisplay.textContent = ''; 
-    } 
-  } 
- 
-  /* ---------------------------- Menu ------------------------------ */ 
-  function renderMenu() { 
-    const list = $('menuList'); 
-    const groups = {}; 
-    state.menu.forEach((m) => { 
-      (groups[m.category] = groups[m.category] || []).push(m); 
-    }); 
- 
-    list.innerHTML = ''; 
-    Object.keys(groups).forEach((cat) => { 
-      const title = document.createElement('div'); 
-      title.className = 'category-title'; 
-      title.textContent = cat; 
-      list.appendChild(title); 
- 
-      groups[cat].forEach((item) => { 
-        const row = document.createElement('div'); 
-        row.className = 'menu-item' + (item.available ? '' : ' unavailable'); 
-        const qty = state.cart[item.id] || 0; 
-        row.innerHTML = 
-          '<div><div class="name">' + esc(item.name) + '</div>' + 
-          '<div class="price">' + money(item.price) + 
-          (item.available ? '' : ' Â· sold out') + '</div></div>'; 
- 
-        const controls = document.createElement('div'); 
-        if (item.available) { 
-          controls.className = 'qty'; 
-          controls.innerHTML = 
-            '<button class="round-btn" data-dec="' + item.id + '">âˆ’</button>' + 
-            '<span>' + qty + '</span>' + 
-            '<button class="round-btn brand" data-inc="' + item.id + '">+</button>'; 
-        } 
-        row.appendChild(controls); 
-        list.appendChild(row); 
-      }); 
-    }); 
- 
-    list.querySelectorAll('[data-inc]').forEach((b) => 
-      b.addEventListener('click', () => changeQty(b.dataset.inc, 1)) 
-    ); 
-    list.querySelectorAll('[data-dec]').forEach((b) => 
-      b.addEventListener('click', () => changeQty(b.dataset.dec, -1)) 
-    ); 
-    renderCartBar(); 
-  } 
- 
-  function changeQty(id, delta) { 
-    const next = (state.cart[id] || 0) + delta; 
-    if (next <= 0) delete state.cart[id]; 
-    else state.cart[id] = next; 
-    renderMenu(); 
-  } 
- 
-  function cartLines() { 
-    return Object.keys(state.cart).map((id) => { 
-      const m = state.menu.find((x) => x.id === id); 
-      return { itemId: id, name: m.name, price: m.price, qty: state.cart[id] }; 
-    }); 
-  } 
- 
-  function cartTotal() { 
-    return cartLines().reduce((s, l) => s + l.price * l.qty, 0); 
-  } 
- 
-  function renderCartBar() { 
-    const lines = cartLines(); 
-    const count = lines.reduce((s, l) => s + l.qty, 0); 
-    const bar = $('cartBar'); 
-    if (count === 0) return bar.classList.add('hidden'); 
-    bar.classList.remove('hidden'); 
-    $('cartSummary').textContent = count + (count === 1 ? ' item' : ' items'); 
-    $('cartTotal').textContent = money(cartTotal()); 
-    bar.onclick = goCheckout; 
-  } 
- 
-  /* ------------------------- Geolocation -------------------------- */ 
-  async function checkLocation() { 
-    const banner = $('geoBanner'); 
-    try { 
-      state.location = await getPosition(); 
-      const res = await API.post('/public/restaurants/' + state.code + '/geocheck', state.location); 
-      state.withinRange = res.withinRange; 
-      if (res.withinRange) { 
-        banner.className = 'banner ok'; 
-        banner.textContent = 'You are near ' + state.restaurant.name + ' â€” you can order.'; 
-      } else { 
-        banner.className = 'banner danger'; 
-        banner.textContent = 
-          'You are ~' + res.distanceMeters + 'm away. You must be within ' + 
-          res.radiusMeters + 'm to order (browsing only).'; 
-      } 
-    } catch (e) { 
-      state.withinRange = false; 
-      banner.className = 'banner danger'; 
-      banner.textContent = 'Location unavailable â€” ordering is blocked. Enable location and reload.'; 
-    } 
-    renderCartBar(); 
-  } 
- 
-  /* --------------------------- Checkout --------------------------- */ 
-  function goCheckout() { 
-    if (!state.withinRange) { 
-      alert('You must be within range of the restaurant to order.'); 
-      return; 
-    } 
-    if (cartLines().length === 0) return; 
-    const box = $('checkoutItems'); 
-    box.innerHTML = 
-      cartLines() 
-        .map((l) => '<div class="menu-item"><span>' + esc(l.name) + ' Ã— ' + l.qty + 
-          '</span><strong>' + money(l.price * l.qty) + '</strong></div>') 
-        .join('') + 
-      '<div class="menu-item"><strong>Total</strong><strong>' + money(cartTotal()) + '</strong></div>'; 
-    show('checkoutScreen'); 
-  } 
- 
-  $('backToMenu').addEventListener('click', () => show('menuScreen')); 
- 
-  $('payBtn').addEventListener('click', async () => { 
-    $('checkoutError').textContent = ''; 
-    const name = $('custName').value.trim(); 
-    const phone = $('custPhone').value.trim(); 
-    if (!name) return ($('checkoutError').textContent = 'Please enter your name'); 
- 
-    $('payBtn').disabled = true; 
-    try { 
-      const data = await API.post('/public/orders', { 
-        restaurantCode: state.code, 
-        items: cartLines().map((l) => ({ itemId: l.itemId, qty: l.qty })), 
-        customer: { name, phone }, 
-        location: state.location, 
-      }); 
-      await pay(data, { name, phone }); 
-    } catch (e) { 
-      $('checkoutError').textContent = e.message; 
-      $('payBtn').disabled = false; 
-    } 
-  }); 
- 
-  function pay(data, customer) { 
-    return new Promise((resolve) => { 
-      if (data.provider === 'razorpay' && data.keyId) { 
-        const rzp = new Razorpay({ 
-          key: data.keyId, 
-          order_id: data.paymentOrder.id, 
-          amount: data.paymentOrder.amount, 
-          currency: data.paymentOrder.currency, 
-          name: state.restaurant.name, 
-          description: 'Food order', 
-          prefill: { name: customer.name, contact: customer.phone }, 
-          theme: { color: '#6366f1' }, 
-          handler: async (resp) => { 
-            try { 
-              await API.post('/public/orders/' + data.order.id + '/confirm', resp); 
-              showSuccess(data.order); 
-            } catch (e) { 
-              $('checkoutError').textContent = e.message; 
-              $('payBtn').disabled = false; 
-            } 
-            resolve(); 
-          }, 
-          modal: { 
-            ondismiss: () => { 
-              $('checkoutError').textContent = 'Payment cancelled.'; 
-              $('payBtn').disabled = false; 
-              resolve(); 
-            }, 
-          }, 
-        }); 
-        rzp.open(); 
-      } else { 
-        // Free mock mode â€” confirm immediately (no real payment window) 
-        API.post('/public/orders/' + data.order.id + '/confirm', {}) 
-          .then(() => showSuccess(data.order)) 
-          .catch((e) => { 
-            $('checkoutError').textContent = e.message; 
-            $('payBtn').disabled = false; 
-          }) 
-          .finally(resolve); 
-      } 
-    }); 
-  } 
- 
-  function showSuccess(order) { 
-    $('successDetail').innerHTML = 
-      '<div class="muted">Order ID</div><div>' + order.id.slice(0, 8) + '</div>' + 
-      '<div class="muted" style="margin-top:8px">Total</div><div>' + money(order.total) + '</div>'; 
-    show('successScreen'); 
-  } 
- 
-  /* --------------------------- Helpers ---------------------------- */ 
-  function show(id) { 
-    ['keypadScreen', 'menuScreen', 'checkoutScreen', 'successScreen'].forEach((s) => 
-      $(s).classList.toggle('hidden', s !== id) 
-    ); 
-  } 
-  function esc(s) { 
-    return String(s).replace(/[&<>"]/g, (c) => 
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]) 
-    ); 
-  } 
-})(); 
- 
+
+  const state = { 
+
+    code: '', 
+
+    restaurant: null, 
+
+    menu: [], 
+
+    cart: {}, // itemId -> qty 
+
+    location: null, 
+
+    withinRange: false, 
+
+  }; 
 
  
+
+  const $ = (id) => document.getElementById(id); 
+
+  const money = (n) => '\u20B9' + Number(n).toFixed(0); 
+
+ 
+
+  /* ---------------------------- Keypad ---------------------------- */ 
+
+  const codeDisplay = $('codeDisplay'); 
+
+  document.querySelectorAll('.key').forEach((key) => { 
+
+    key.addEventListener('click', () => onKey(key.dataset.k)); 
+
+  }); 
+
+ 
+
+  function onKey(k) { 
+
+    $('keypadError').textContent = ''; 
+
+    if (k === 'del') { 
+
+      state.code = state.code.slice(0, -1); 
+
+    } else if (k === 'ok') { 
+
+      if (state.code.length === 3) return loadRestaurant(); 
+
+      return; 
+
+    } else if (/^\d$/.test(k) && state.code.length < 3) { 
+
+      state.code += k; 
+
+    } 
+
+    codeDisplay.textContent = state.code.replace(/./g, (c) => c); 
+
+    if (state.code.length === 3) loadRestaurant(); 
+
+  } 
+
+ 
+
+  async function loadRestaurant() { 
+
+    try { 
+
+      const data = await API.get('/public/restaurants/' + state.code + '/menu'); 
+
+      state.restaurant = data.restaurant; 
+
+      state.menu = data.menu; 
+
+      $('restaurantNameTop').textContent = data.restaurant.name; 
+
+      show('menuScreen'); 
+
+      renderMenu(); 
+
+      checkLocation(); 
+
+    } catch (e) { 
+
+      $('keypadError').textContent = e.message; 
+
+      state.code = ''; 
+
+      codeDisplay.textContent = ''; 
+
+    } 
+
+  } 
+
+ 
+
+  /* ---------------------------- Menu ------------------------------ */ 
+
+  function renderMenu() { 
+
+    const list = $('menuList'); 
+
+    const groups = {}; 
+
+    state.menu.forEach((m) => { 
+
+      (groups[m.category] = groups[m.category] || []).push(m); 
+
+    }); 
+
+ 
+
+    list.innerHTML = ''; 
+
+    Object.keys(groups).forEach((cat) => { 
+
+      const title = document.createElement('div'); 
+
+      title.className = 'category-title'; 
+
+      title.textContent = cat; 
+
+      list.appendChild(title); 
+
+ 
+
+      groups[cat].forEach((item) => { 
+
+        const row = document.createElement('div'); 
+
+        row.className = 'menu-item' + (item.available ? '' : ' unavailable'); 
+
+        const qty = state.cart[item.id] || 0; 
+
+        row.innerHTML = 
+
+          '<div><div class="name">' + esc(item.name) + '</div>' + 
+
+          '<div class="price">' + money(item.price) + 
+
+          (item.available ? '' : ' \u00B7 sold out') + '</div></div>'; 
+
+ 
+
+        const controls = document.createElement('div'); 
+
+        if (item.available) { 
+
+          controls.className = 'qty'; 
+
+          controls.innerHTML = 
+
+            '<button class="round-btn" data-dec="' + item.id + '">\u2212</button>' + 
+
+            '<span>' + qty + '</span>' + 
+
+            '<button class="round-btn brand" data-inc="' + item.id + '">+</button>'; 
+
+        } 
+
+        row.appendChild(controls); 
+
+        list.appendChild(row); 
+
+      }); 
+
+    }); 
+
+ 
+
+    list.querySelectorAll('[data-inc]').forEach((b) => 
+
+      b.addEventListener('click', () => changeQty(b.dataset.inc, 1)) 
+
+    ); 
+
+    list.querySelectorAll('[data-dec]').forEach((b) => 
+
+      b.addEventListener('click', () => changeQty(b.dataset.dec, -1)) 
+
+    ); 
+
+    renderCartBar(); 
+
+  } 
+
+ 
+
+  function changeQty(id, delta) { 
+
+    const next = (state.cart[id] || 0) + delta; 
+
+    if (next <= 0) delete state.cart[id]; 
+
+    else state.cart[id] = next; 
+
+    renderMenu(); 
+
+  } 
+
+ 
+
+  function cartLines() { 
+
+    return Object.keys(state.cart).map((id) => { 
+
+      const m = state.menu.find((x) => x.id === id); 
+
+      return { itemId: id, name: m.name, price: m.price, qty: state.cart[id] }; 
+
+    }); 
+
+  } 
+
+ 
+
+  function cartTotal() { 
+
+    return cartLines().reduce((s, l) => s + l.price * l.qty, 0); 
+
+  } 
+
+ 
+
+  function renderCartBar() { 
+
+    const lines = cartLines(); 
+
+    const count = lines.reduce((s, l) => s + l.qty, 0); 
+
+    const bar = $('cartBar'); 
+
+    if (count === 0) return bar.classList.add('hidden'); 
+
+    bar.classList.remove('hidden'); 
+
+    $('cartSummary').textContent = count + (count === 1 ? ' item' : ' items'); 
+
+    $('cartTotal').textContent = money(cartTotal()); 
+
+    bar.onclick = goCheckout; 
+
+  } 
+
+ 
+
+  /* ------------------------- Geolocation -------------------------- */ 
+
+  async function checkLocation() { 
+
+    const banner = $('geoBanner'); 
+
+    try { 
+
+      state.location = await getPosition(); 
+
+      const res = await API.post('/public/restaurants/' + state.code + '/geocheck', state.location); 
+
+      state.withinRange = res.withinRange; 
+
+      if (res.withinRange) { 
+
+        banner.className = 'banner ok'; 
+
+        banner.textContent = 'You are near ' + state.restaurant.name + ' \u2014 you can order.'; 
+
+      } else { 
+
+        banner.className = 'banner danger'; 
+
+        banner.textContent = 
+
+          'You are ~' + res.distanceMeters + 'm away. You must be within ' + 
+
+          res.radiusMeters + 'm to order (browsing only).'; 
+
+      } 
+
+    } catch (e) { 
+
+      state.withinRange = false; 
+
+      banner.className = 'banner danger'; 
+
+      banner.textContent = 'Location unavailable \u2014 ordering is blocked. Enable location and reload.'; 
+
+    } 
+
+    renderCartBar(); 
+
+  } 
+
+ 
+
+  /* --------------------------- Checkout --------------------------- */ 
+
+  function goCheckout() { 
+
+    if (!state.withinRange) { 
+
+      alert('You must be within range of the restaurant to order.'); 
+
+      return; 
+
+    } 
+
+    if (cartLines().length === 0) return; 
+
+    const box = $('checkoutItems'); 
+
+    box.innerHTML = 
+
+      cartLines() 
+
+        .map((l) => '<div class="menu-item"><span>' + esc(l.name) + ' \u00D7 ' + l.qty + 
+
+          '</span><strong>' + money(l.price * l.qty) + '</strong></div>') 
+
+        .join('') + 
+
+      '<div class="menu-item"><strong>Total</strong><strong>' + money(cartTotal()) + '</strong></div>'; 
+
+    show('checkoutScreen'); 
+
+  } 
+
+ 
+
+  $('backToMenu').addEventListener('click', () => show('menuScreen')); 
+
+ 
+
+  $('payBtn').addEventListener('click', async () => { 
+
+    $('checkoutError').textContent = ''; 
+
+    const name = $('custName').value.trim(); 
+
+    const phone = $('custPhone').value.trim(); 
+
+    if (!name) return ($('checkoutError').textContent = 'Please enter your name'); 
+
+ 
+
+    $('payBtn').disabled = true; 
+
+    try { 
+
+      const data = await API.post('/public/orders', { 
+
+        restaurantCode: state.code, 
+
+        items: cartLines().map((l) => ({ itemId: l.itemId, qty: l.qty })), 
+
+        customer: { name, phone }, 
+
+        location: state.location, 
+
+      }); 
+
+      await pay(data, { name, phone }); 
+
+    } catch (e) { 
+
+      $('checkoutError').textContent = e.message; 
+
+      $('payBtn').disabled = false; 
+
+    } 
+
+  }); 
+
+ 
+
+  function pay(data, customer) { 
+
+    return new Promise((resolve) => { 
+
+      if (data.provider === 'razorpay' && data.keyId) { 
+
+        const rzp = new Razorpay({ 
+
+          key: data.keyId, 
+
+          order_id: data.paymentOrder.id, 
+
+          amount: data.paymentOrder.amount, 
+
+          currency: data.paymentOrder.currency, 
+
+          name: state.restaurant.name, 
+
+          description: 'Food order', 
+
+          prefill: { name: customer.name, contact: customer.phone }, 
+
+          theme: { color: '#6366f1' }, 
+
+          handler: async (resp) => { 
+
+            try { 
+
+              await API.post('/public/orders/' + data.order.id + '/confirm', resp); 
+
+              showSuccess(data.order); 
+
+            } catch (e) { 
+
+              $('checkoutError').textContent = e.message; 
+
+              $('payBtn').disabled = false; 
+
+            } 
+
+            resolve(); 
+
+          }, 
+
+          modal: { 
+
+            ondismiss: () => { 
+
+              $('checkoutError').textContent = 'Payment cancelled.'; 
+
+              $('payBtn').disabled = false; 
+
+              resolve(); 
+
+            }, 
+
+          }, 
+
+        }); 
+
+        rzp.open(); 
+
+      } else { 
+
+        // Free mock mode -- confirm immediately (no real payment window) 
+
+        API.post('/public/orders/' + data.order.id + '/confirm', {}) 
+
+          .then(() => showSuccess(data.order)) 
+
+          .catch((e) => { 
+
+            $('checkoutError').textContent = e.message; 
+
+            $('payBtn').disabled = false; 
+
+          }) 
+
+          .finally(resolve); 
+
+      } 
+
+    }); 
+
+  } 
+
+ 
+
+  function showSuccess(order) { 
+
+    $('successDetail').innerHTML = 
+
+      '<div class="muted">Order ID</div><div>' + order.id.slice(0, 8) + '</div>' + 
+
+      '<div class="muted" style="margin-top:8px">Total</div><div>' + money(order.total) + '</div>'; 
+
+    show('successScreen'); 
+
+  } 
+
+ 
+
+  /* --------------------------- Helpers ---------------------------- */ 
+
+  function show(id) { 
+
+    ['keypadScreen', 'menuScreen', 'checkoutScreen', 'successScreen'].forEach((s) => 
+
+      $(s).classList.toggle('hidden', s !== id) 
+
+    ); 
+
+  } 
+
+  function esc(s) { 
+
+    return String(s).replace(/[&<>"]/g, (c) => 
+
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]) 
+
+    ); 
+
+  } 
+
+})(); 
+
+'''), 
+
+ 
+
+    ("public/index.html", r''' 
+
+<!DOCTYPE html> 
+
+<html lang="en"> 
+
+<head> 
+
+  <meta charset="UTF-8" /> 
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" /> 
+
+  <title>Avenza by Astravia</title> 
+
+  <link rel="stylesheet" href="/css/styles.css" /> 
+
+</head> 
+
+<body> 
+
+  <div class="app"> 
+
+    <div class="topbar"> 
+
+      <div class="brand"> 
+
+        <span class="brand-name">Avenza</span> 
+
+        <span class="brand-sub">by Astravia</span> 
+
+      </div> 
+
+      <small id="restaurantNameTop"></small> 
+
+    </div> 
+
+ 
+
+    <!-- STEP 1: keypad --> 
+
+    <section id="keypadScreen" class="screen keypad-wrap"> 
+
+      <div class="code-display" id="codeDisplay"></div> 
+
+      <div class="code-hint">Enter your 3-digit restaurant code</div> 
+
+      <div class="keypad"> 
+
+        <div class="key" data-k="1">1</div> 
+
+        <div class="key" data-k="2">2</div> 
+
+        <div class="key" data-k="3">3</div> 
+
+        <div class="key" data-k="4">4</div> 
+
+        <div class="key" data-k="5">5</div> 
+
+        <div class="key" data-k="6">6</div> 
+
+        <div class="key" data-k="7">7</div> 
+
+        <div class="key" data-k="8">8</div> 
+
+        <div class="key" data-k="9">9</div> 
+
+        <div class="key" data-k="del">&larr;</div> 
+
+        <div class="key" data-k="0">0</div> 
+
+        <div class="key action" data-k="ok">Go</div> 
+
+      </div> 
+
+      <div class="error center" id="keypadError"></div> 
+
+    </section> 
+
+ 
+
+    <!-- STEP 2: menu --> 
+
+    <section id="menuScreen" class="screen hidden"> 
+
+      <div id="geoBanner" class="banner warn">Checking your location&hellip;</div> 
+
+      <div id="menuList"></div> 
+
+      <div class="spacer"></div> 
+
+      <div id="cartBar" class="cart-bar hidden"> 
+
+        <span id="cartSummary">0 items</span> 
+
+        <strong id="cartTotal">&#8377;0</strong> 
+
+      </div> 
+
+    </section> 
+
+ 
+
+    <!-- STEP 3: checkout --> 
+
+    <section id="checkoutScreen" class="screen hidden"> 
+
+      <button class="ghost" id="backToMenu">&larr; Back to menu</button> 
+
+      <h3>Your order</h3> 
+
+      <div id="checkoutItems" class="card"></div> 
+
+      <label>Your name</label> 
+
+      <input id="custName" placeholder="Name" /> 
+
+      <label>Phone number</label> 
+
+      <input id="custPhone" placeholder="Phone" inputmode="numeric" /> 
+
+      <div class="error" id="checkoutError"></div> 
+
+      <button class="primary" id="payBtn">Pay & Place Order</button> 
+
+    </section> 
+
+ 
+
+    <!-- STEP 4: success --> 
+
+    <section id="successScreen" class="screen hidden center"> 
+
+      <h2 style="color: var(--ok)">&#10003; Order placed!</h2> 
+
+      <p class="muted">The restaurant has received your order.</p> 
+
+      <div id="successDetail" class="card"></div> 
+
+      <button class="primary" onclick="location.reload()">Place another order</button> 
+
+    </section> 
+
+  </div> 
+
+ 
+
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script> 
+
+  <script src="/js/api.js"></script> 
+
+  <script src="/js/customer.js"></script> 
+
+</body> 
+
+</html> 
+
+'''), 
+
+ 
+
+] 
+
+ 
+
+def apply(target_dir): 
+
+    if not FILES: 
+
+        print("Nothing to apply: FILES is empty.") 
+
+        return 
+
+    if not os.path.isdir(target_dir): 
+
+        sys.exit("Target folder does not exist:\n  " + target_dir) 
+
+    written = 0 
+
+    for rel_path, content in FILES: 
+
+        abs_path = os.path.join(target_dir, *rel_path.split("/")) 
+
+        os.makedirs(os.path.dirname(abs_path) or ".", exist_ok=True) 
+
+        existed = os.path.exists(abs_path) 
+
+        if existed and MAKE_BACKUP: 
+
+            shutil.copy2(abs_path, abs_path + ".bak") 
+
+        text = content[1:] if content.startswith("\n") else content 
+
+        with open(abs_path, "w", encoding="utf-8", newline="\n") as fh: 
+
+            fh.write(text) 
+
+        written += 1 
+
+        print(("Overwrote: " if existed else "Created:   ") + rel_path) 
+
+    print("\nDone. %d file(s) written to:\n  %s" % (written, target_dir)) 
+
+    if MAKE_BACKUP: 
+
+        print('Backups saved as "<file>.bak" next to each changed file.') 
+
+ 
+
+def main(): 
+
+    target = sys.argv[1] if len(sys.argv) > 1 else TARGET_DIR 
+
+    apply(target) 
+
+ 
+
+if __name__ == "__main__": 
+
+    main() 
 
  
