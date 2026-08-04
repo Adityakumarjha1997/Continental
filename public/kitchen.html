@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Avenza by Astravia · Kitchen</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#6366f1" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
+</head>
+<body>
+  <div class="app wide">
+    <div class="topbar">
+      <div class="brand">
+        <span class="brand-name">Avenza</span>
+        <span class="brand-sub">by Astravia · Kitchen</span>
+      </div>
+      <small id="statusDot">● offline</small>
+    </div>
+
+    <!-- Login -->
+    <section id="loginScreen" class="screen">
+      <div class="card" style="max-width:360px;margin:40px auto">
+        <h3 class="center">Kitchen Login</h3>
+        <label>Restaurant code</label>
+        <input id="code" maxlength="3" inputmode="numeric" placeholder="e.g. 481" />
+        <label>Username</label>
+        <input id="username" placeholder="e.g. kitchen1" />
+        <label>Password</label>
+        <input id="password" type="password" placeholder="Password" />
+        <div class="error" id="loginError"></div>
+        <button class="primary" id="loginBtn">Log in</button>
+      </div>
+    </section>
+
+    <!-- Dashboard -->
+    <section id="dashScreen" class="screen hidden">
+      <div class="staff-head">
+        <div><strong id="kName"></strong><span class="muted"> · <span id="rName"></span></span></div>
+        <div class="staff-head-actions">
+          <label style="display:inline">
+            <input type="checkbox" id="soundToggle" checked style="width:auto;margin:0 6px 0 0" /> Sound
+          </label>
+          <button class="ghost" id="logoutBtn">Log out</button>
+        </div>
+      </div>
+
+      <div id="emptyState" class="banner warn">No orders to cook right now. Confirmed orders appear here.</div>
+      <div class="orders-grid" id="ordersGrid"></div>
+    </section>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/kitchen.js"></script>
+</body>
+</html>

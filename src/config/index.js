@@ -5,13 +5,13 @@ require('dotenv').config();
 const credentials = require('./credentials');
 
 /**
-* Central configuration. Everything reads from here, never from process.env
-* directly, so swapping environments later is a one-file change.
-*
-* Precedence for shared secrets: environment variable  >  credentials.json  >
-* built-in default. On the deployed server you set env vars; locally you edit
-* credentials.json.
-*/
+ * Central configuration. Everything reads from here, never from process.env
+ * directly, so swapping environments later is a one-file change.
+ *
+ * Precedence for shared secrets: environment variable  >  credentials.json  >
+ * built-in default. On the deployed server you set env vars; locally you edit
+ * credentials.json.
+ */
 const razorpayKeyId = process.env.RAZORPAY_KEY_ID || '';
 const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || '';
 
@@ -21,9 +21,13 @@ const paymentProvider =
 
 const config = {
   port: Number(process.env.PORT) || 3000,
+  appName: process.env.APP_NAME || 'Avenza',
   jwtSecret: process.env.JWT_SECRET || 'dev-insecure-secret-change-me',
-  adminPassword: (process.env.ADMIN_PASSWORD || credentials.admin.password || 'admin123').trim(),
+  adminPassword: process.env.ADMIN_PASSWORD || credentials.admin.password || 'admin123',
   defaultRadiusMeters: Number(process.env.DEFAULT_RADIUS_METERS) || 100,
+  // Socket.IO CORS. Empty => reflect the request origin (fine for same-origin
+  // hosting). Set CORS_ORIGIN to a comma-separated allow-list to lock it down.
+  corsOrigin: process.env.CORS_ORIGIN || '',
   // Database: when MONGODB_URI is set the app uses MongoDB (Atlas); otherwise
   // it falls back to a local JSON file. See src/data/store.js.
   mongo: {

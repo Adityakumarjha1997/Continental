@@ -21,9 +21,29 @@ const server = http.createServer(app);
 const io = initSocket(server);
 app.set('io', io);
 
-// Security + parsing. CSP is disabled so the Razorpay widget + inline demo
-// scripts load without extra config during testing.
-app.use(helmet({ contentSecurityPolicy: false }));
+// Security headers. A real Content-Security-Policy is now ENABLED (it used to be
+// disabled). It allows: the app's own assets, the inline handlers/styles the
+// pages use, the Razorpay checkout widget, remote menu images over https, and
+// the same-origin Socket.IO websocket. If anything ever fails to load after a
+// deploy, you can temporarily set `contentSecurityPolicy: false` to isolate it.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        'script-src': ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://checkout.razorpay.com'],
+        'style-src': ["'self'", "'unsafe-inline'"],
+        'img-src': ["'self'", 'data:', 'https:'],
+        'font-src': ["'self'", 'data:'],
+        'connect-src': ["'self'", 'https://*.razorpay.com', 'ws:', 'wss:'],
+        'frame-src': ['https://*.razorpay.com', 'https://checkout.razorpay.com'],
+        'worker-src': ["'self'"],
+        // Do not force https upgrades (keeps http://localhost working in dev).
+        'upgrade-insecure-requests': null,
+      },
+    },
+  })
+);
 app.use(express.json({ limit: '1mb' }));
 
 // Basic abuse protection on the API
@@ -31,7 +51,9 @@ app.use('/api', rateLimit({ windowMs: 60 * 1000, max: 120 }));
 app.use('/api', routes);
 app.use('/api', notFound);
 
-// Static frontend (customer / owner / admin pages)
+// Static frontend (customer / owner / admin pages). The PWA service worker is
+// served from the site root (public/sw.js -> /sw.js) so it can control the
+// whole origin.
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(errorHandler);
@@ -43,16 +65,14 @@ store
   .then(() => ensureSeed())
   .then(() => {
     server.listen(config.port, () => {
-      console.log(`
-  Food ordering server is running`);
+      console.log('\n  Food ordering server is running');
       console.log('  --------------------------------------------------');
       console.log(`  Customer app : http://localhost:${config.port}/`);
       console.log(`  Owner login  : http://localhost:${config.port}/owner.html`);
       console.log(`  Admin panel  : http://localhost:${config.port}/admin.html`);
       console.log(`  Data store   : ${store.backendName()}`);
       console.log(`  Payment mode : ${payment.name}`);
-      console.log(`  --------------------------------------------------
-`);
+      console.log('  --------------------------------------------------\n');
     });
   })
   .catch((err) => {

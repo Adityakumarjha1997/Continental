@@ -5,25 +5,27 @@ const path = require('path');
 const config = require('../config');
 
 /**
-* The ONLY place that persists data. Everything else (repositories) reads/writes
-* through here, so switching storage is a one-file change.
-*
-* Two backends, chosen automatically at startup:
-*   - MongoDB  : used when MONGODB_URI is set (e.g. on Render + MongoDB Atlas).
-*   - JSON file: the fallback for local development (data/db.json).
-*
-* How it stays simple: the whole database is a single small document
-* ({ restaurants, menuItems, orders }). We load it into memory once via init(),
-* serve every read() from that in-memory copy (so repositories can stay
-* synchronous), and persist the whole document again on every write().
-*
-* NOTE: because reads come from an in-memory copy, run only ONE server instance
-* (the free Render tier does exactly this). If you later scale to multiple
-* instances, move reads to query the DB directly.
-*/
+ * The ONLY place that persists data. Everything else (repositories) reads/writes
+ * through here, so switching storage is a one-file change.
+ *
+ * Two backends, chosen automatically at startup:
+ *   - MongoDB  : used when MONGODB_URI is set (e.g. on Render + MongoDB Atlas).
+ *   - JSON file: the fallback for local development (data/db.json).
+ *
+ * How it stays simple: the whole database is a single small document
+ * ({ restaurants, menuItems, orders, staff }). We load it into memory once via
+ * init(), serve every read() from that in-memory copy (so repositories can stay
+ * synchronous), and persist the whole document again on every write().
+ *
+ * NOTE: because reads come from an in-memory copy, run only ONE server instance
+ * (the free Render tier does exactly this). If you later scale to multiple
+ * instances, move reads to query the DB directly.
+ *
+ * 2026 dine-in update: added the `staff` collection (waiters + kitchen accounts).
+ */
 const DATA_DIR = path.join(__dirname, '..', '..', 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
-const DEFAULT_DB = { restaurants: [], menuItems: [], orders: [] };
+const DEFAULT_DB = { restaurants: [], menuItems: [], orders: [], staff: [] };
 
 let cache = { ...DEFAULT_DB };
 let backend = null; // set by init()
@@ -72,6 +74,7 @@ function mongoBackend(uri, dbName) {
         restaurants: doc.restaurants || [],
         menuItems: doc.menuItems || [],
         orders: doc.orders || [],
+        staff: doc.staff || [],
       };
     },
     async save(db) {
@@ -91,6 +94,9 @@ async function init() {
     backend = jsonBackend;
   }
   cache = await backend.load();
+  // Make sure older databases (created before the dine-in update) still expose
+  // every collection so repositories never touch `undefined`.
+  if (!Array.isArray(cache.staff)) cache.staff = [];
   return backend.name;
 }
 
