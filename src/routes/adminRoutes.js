@@ -18,7 +18,7 @@ function sanitize(r) {
 /** Admin login (company owner). Single shared admin password from .env. */ 
 router.post('/login', (req, res) => { 
   const { password } = req.body || {}; 
-  if (password !== config.adminPassword) { 
+  if (String(password || '').trim() !== config.adminPassword) { 
     return res.status(401).json({ error: 'Invalid admin password' }); 
   } 
   res.json({ token: authService.signToken({ role: 'admin' }, '24h') }); 

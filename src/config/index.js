@@ -22,7 +22,7 @@ const paymentProvider =
 const config = {
   port: Number(process.env.PORT) || 3000,
   jwtSecret: process.env.JWT_SECRET || 'dev-insecure-secret-change-me',
-  adminPassword: process.env.ADMIN_PASSWORD || credentials.admin.password || 'admin123',
+  adminPassword: (process.env.ADMIN_PASSWORD || credentials.admin.password || 'admin123').trim(),
   defaultRadiusMeters: Number(process.env.DEFAULT_RADIUS_METERS) || 100,
   // Database: when MONGODB_URI is set the app uses MongoDB (Atlas); otherwise
   // it falls back to a local JSON file. See src/data/store.js.

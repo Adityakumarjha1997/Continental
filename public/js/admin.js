@@ -11,7 +11,7 @@
   async function login() { 
     $('loginError').textContent = ''; 
     try { 
-      const data = await API.post('/admin/login', { password: $('adminPass').value }); 
+      const data = await API.post('/admin/login', { password: $('adminPass').value.trim() }); 
       state.token = data.token; 
       $('loginScreen').classList.add('hidden'); 
       $('panelScreen').classList.remove('hidden'); 
