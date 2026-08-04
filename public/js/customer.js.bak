@@ -13,6 +13,20 @@
   const $ = (id) => document.getElementById(id); 
   const money = (n) => '\u20B9' + Number(n).toFixed(0); 
 
+  /* ---------------------------- Login ----------------------------- */ 
+  // Dummy sign-in: Google just advances; any username + password works. 
+  $('googleBtn').addEventListener('click', () => show('keypadScreen')); 
+  $('loginBtn').addEventListener('click', () => { 
+    const u = $('loginUser').value.trim(); 
+    const p = $('loginPass').value.trim(); 
+    if (!u || !p) { 
+      $('loginError').textContent = 'Enter any username and password to continue'; 
+      return; 
+    } 
+    $('loginError').textContent = ''; 
+    show('keypadScreen'); 
+  }); 
+
   /* ---------------------------- Keypad ---------------------------- */ 
   const codeDisplay = $('codeDisplay'); 
   document.querySelectorAll('.key').forEach((key) => { 
@@ -39,6 +53,8 @@
       state.restaurant = data.restaurant; 
       state.menu = data.menu; 
       $('restaurantNameTop').textContent = data.restaurant.name; 
+      $('hotelBox').classList.remove('hidden'); 
+      $('appTopbar').classList.add('menu-mode'); 
       show('menuScreen'); 
       renderMenu(); 
       checkLocation(); 
@@ -241,7 +257,7 @@
 
   /* --------------------------- Helpers ---------------------------- */ 
   function show(id) { 
-    ['keypadScreen', 'menuScreen', 'checkoutScreen', 'successScreen'].forEach((s) => 
+    ['loginScreen', 'keypadScreen', 'menuScreen', 'checkoutScreen', 'successScreen'].forEach((s) => 
       $(s).classList.toggle('hidden', s !== id) 
     ); 
   } 
