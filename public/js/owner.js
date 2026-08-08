@@ -271,12 +271,33 @@
 
   /* ----------------------------- Menu ----------------------------- */
   async function loadMenu() {
+    // Refresh sections in case the admin changed them since login.
+    try {
+      const r = await API.get('/owner/restaurant', state.token);
+      if (r && r.restaurant) state.restaurant = r.restaurant;
+    } catch (_) {}
+    populateSections();
     try {
       const data = await API.get('/owner/menu', state.token);
       state.menu = data.menu;
       renderMenu();
     } catch (e) {
       $('menuBody').innerHTML = '<tr><td colspan="5" class="banner danger">' + esc(e.message) + '</td></tr>';
+    }
+  }
+
+  // Section picker: use the admin-defined grids if any, else a free-text fallback.
+  function populateSections() {
+    const grids = (state.restaurant && state.restaurant.grids) || [];
+    const sel = $('mGrid');
+    const txt = $('mCategory');
+    if (grids.length) {
+      sel.classList.remove('hidden');
+      txt.classList.add('hidden');
+      sel.innerHTML = grids.map((g) => '<option value="' + g.id + '">' + esc(g.name) + '</option>').join('');
+    } else {
+      sel.classList.add('hidden');
+      txt.classList.remove('hidden');
     }
   }
   function renderMenu() {
@@ -317,16 +338,22 @@
   }
   $('addItemBtn').addEventListener('click', async () => {
     $('menuError').textContent = '';
+    const usingGrids = !$('mGrid').classList.contains('hidden');
+    if (usingGrids && !$('mGrid').value) {
+      return ($('menuError').textContent = 'No sections yet — ask the admin to add sections first.');
+    }
+    const payload = {
+      name: $('mName').value.trim(),
+      price: parseFloat($('mPrice').value),
+      imageUrl: $('mImg').value.trim(),
+      isVeg: $('mVeg').checked,
+      spicy: $('mSpicy').checked,
+      tags: $('mTags').value.trim(),
+    };
+    if (usingGrids) payload.gridId = $('mGrid').value;
+    else payload.category = $('mCategory').value.trim() || 'General';
     try {
-      await API.post('/owner/menu', {
-        name: $('mName').value.trim(),
-        price: parseFloat($('mPrice').value),
-        category: $('mCategory').value.trim() || 'General',
-        imageUrl: $('mImg').value.trim(),
-        isVeg: $('mVeg').checked,
-        spicy: $('mSpicy').checked,
-        tags: $('mTags').value.trim(),
-      }, state.token);
+      await API.post('/owner/menu', payload, state.token);
       ['mName', 'mPrice', 'mCategory', 'mImg', 'mTags'].forEach((id) => ($(id).value = ''));
       $('mVeg').checked = true; $('mSpicy').checked = false;
       loadMenu();

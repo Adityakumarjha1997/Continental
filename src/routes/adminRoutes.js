@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
 
@@ -106,6 +107,31 @@ router.delete('/restaurants/:code', requireAdmin, async (req, res, next) => {
   try {
     await restaurantRepo.remove(req.params.code);
     res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/* ------------------------------ Sections ------------------------------- */
+/* Menu "sections" (grid tiles) are designed by the company admin; each dish the
+   owner adds references one of these by id. Two levels only: section -> dishes. */
+
+router.patch('/restaurants/:code/grids', requireAdmin, async (req, res, next) => {
+  try {
+    if (!Array.isArray(req.body.grids)) {
+      return res.status(400).json({ error: 'grids must be a list' });
+    }
+    const grids = req.body.grids
+      .slice(0, 50)
+      .map((g) => ({
+        id: g.id || crypto.randomUUID(),
+        name: String(g.name || '').slice(0, 60).trim(),
+        description: String(g.description || '').slice(0, 140).trim(),
+      }))
+      .filter((g) => g.name);
+    const updated = await restaurantRepo.update(req.params.code, { grids });
+    if (!updated) return res.status(404).json({ error: 'Not found' });
+    res.json({ restaurant: sanitize(updated) });
   } catch (e) {
     next(e);
   }

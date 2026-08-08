@@ -82,9 +82,13 @@
     <!-- STEP 2: menu -->
     <section id="menuScreen" class="screen hidden">
       <div class="menu-toolbar">
+        <button class="ghost" id="menuBackBtn">&larr; Change</button>
         <div id="geoBanner" class="banner warn">Checking your location&hellip;</div>
         <button class="ghost" id="myOrdersBtn">My orders</button>
       </div>
+      <button class="ghost hidden" id="sectionsBackBtn">&larr; All sections</button>
+      <div id="sectionTitle" class="category-title hidden"></div>
+      <div id="gridTiles" class="grid-tiles hidden"></div>
       <div id="menuList"></div>
       <div class="spacer"></div>
       <div id="cartBar" class="cart-bar hidden">

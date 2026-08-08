@@ -31,8 +31,21 @@ async function ensureSeed() {
 
   const firstCode = String(owners[0].code);
 
-  // Create every owner from the credentials file. The first one gets 12 tables
-  // and a demo UPI QR; the rest start with no tables (owner adds them later).
+  // Demo menu "sections" (grid tiles) for the first restaurant, so the grid
+  // view works out of the box on a fresh install. Admin can edit these later.
+  const gridDefs = [
+    { name: 'Pizza', description: 'Wood-fired classics' },
+    { name: 'Main Course', description: 'Hearty mains & curries' },
+    { name: 'Rice', description: 'Biryani & rice bowls' },
+    { name: 'South Indian', description: 'Dosa, idli & more' },
+    { name: 'Desserts', description: 'Sweet endings' },
+    { name: 'Beverages', description: 'Drinks & coolers' },
+  ];
+  const grids = gridDefs.map((g) => ({ id: crypto.randomUUID(), name: g.name, description: g.description }));
+  const gridId = (name) => (grids.find((g) => g.name === name) || {}).id || null;
+
+  // Create every owner from the credentials file. The first one gets 12 tables,
+  // a demo UPI QR and the demo sections; the rest start empty.
   for (const o of owners) {
     const isFirst = String(o.code) === firstCode;
     await restaurantRepo.create({
@@ -49,17 +62,18 @@ async function ensureSeed() {
       paymentQRs: isFirst
         ? [{ id: crypto.randomUUID(), label: 'Restaurant UPI', upiId: 'demo@upi', imageUrl: '' }]
         : [],
+      grids: isFirst ? grids : [],
     });
   }
 
-  // Demo menu for the first restaurant (rich 2026 fields: veg / spicy / tags).
+  // Demo menu for the first restaurant (rich fields + a section per item).
   const items = [
     { name: 'Margherita Pizza', price: 199, category: 'Pizza', isVeg: true, tags: ['Bestseller'] },
     { name: 'Paneer Butter Masala', price: 220, category: 'Main Course', isVeg: true, spicy: true, tags: ['Chef special'] },
     { name: 'Veg Biryani', price: 180, category: 'Rice', isVeg: true, spicy: true },
     { name: 'Chicken Biryani', price: 240, category: 'Rice', isVeg: false, spicy: true, tags: ['Bestseller'] },
     { name: 'Masala Dosa', price: 90, category: 'South Indian', isVeg: true },
-    { name: 'Gulab Jamun (2 pcs)', price: 60, category: 'Dessert', isVeg: true },
+    { name: 'Gulab Jamun (2 pcs)', price: 60, category: 'Desserts', isVeg: true },
     { name: 'Cold Coffee', price: 120, category: 'Beverages', isVeg: true },
   ];
   for (const it of items) {
@@ -71,6 +85,7 @@ async function ensureSeed() {
       isVeg: true,
       spicy: false,
       tags: [],
+      gridId: gridId(it.category),
       ...it,
     });
   }

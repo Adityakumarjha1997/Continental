@@ -60,6 +60,13 @@ router.get('/analytics', requireOwner, (req, res) => {
   res.json({ analytics: orderService.analytics(req.owner.code) });
 });
 
+/** Current restaurant record (so the panel can refresh admin-defined sections). */
+router.get('/restaurant', requireOwner, (req, res) => {
+  const r = restaurantRepo.findByCode(req.owner.code);
+  if (!r) return res.status(404).json({ error: 'Not found' });
+  res.json({ restaurant: orderService.publicRestaurant(r) });
+});
+
 /** Owner can cancel / override an order's status; broadcasts the change live. */
 router.patch('/orders/:id', requireOwner, async (req, res, next) => {
   try {
@@ -167,12 +174,23 @@ router.post('/menu', requireOwner, async (req, res, next) => {
     if (!name || price == null || isNaN(Number(price))) {
       return res.status(400).json({ error: 'Name and a valid price are required' });
     }
+    // Resolve the section (grid) this dish belongs to; mirror its name into the
+    // legacy `category` field so old list views keep grouping correctly.
+    let gridId = req.body.gridId ? String(req.body.gridId) : null;
+    let cat = (category && String(category).trim()) || 'General';
+    if (gridId) {
+      const r = restaurantRepo.findByCode(req.owner.code);
+      const g = ((r && r.grids) || []).find((x) => x.id === gridId);
+      if (g) cat = g.name;
+      else gridId = null;
+    }
     const item = await menuRepo.create({
       restaurantCode: req.owner.code,
       name: String(name).trim(),
       description: description || '',
       price: Number(price),
-      category: (category && String(category).trim()) || 'General',
+      category: cat,
+      gridId,
       available: available !== false,
       imageUrl: '',
       isVeg: true,
@@ -195,6 +213,12 @@ router.patch('/menu/:id', requireOwner, async (req, res, next) => {
     const patch = { ...req.body, ...normalizeMenuFields(req.body) };
     if (patch.price != null) patch.price = Number(patch.price);
     delete patch.restaurantCode;
+    if (patch.gridId) {
+      const r = restaurantRepo.findByCode(req.owner.code);
+      const g = ((r && r.grids) || []).find((x) => x.id === String(patch.gridId));
+      if (g) { patch.gridId = g.id; patch.category = g.name; }
+      else delete patch.gridId;
+    }
     const item = await menuRepo.update(req.params.id, patch);
     res.json({ item });
   } catch (e) {

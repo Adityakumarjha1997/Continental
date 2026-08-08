@@ -17,7 +17,7 @@
         <span class="brand-name">Avenza</span>
         <span class="brand-sub">by Astravia</span>
       </div>
-      <small>Admin Panel · company owner</small>
+      <small>Admin</small>
     </div>
 
     <!-- Login -->
@@ -85,6 +85,25 @@
         </div>
         <div class="error" id="addError"></div>
         <button class="primary" id="addBtn">Create restaurant</button>
+      </div>
+
+      <!-- Sections (grid) editor -->
+      <div id="sectionsEditor" class="card hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h4 id="sectionsTitle">Menu sections</h4>
+          <button class="ghost" id="closeSections">Close</button>
+        </div>
+        <p class="muted" style="font-size:13px;margin-top:0">
+          Design the section tiles customers tap (e.g. <b>Biryani</b>). Each has a name and a
+          one-line description. The owner then adds dishes into these sections.
+        </p>
+        <div id="sectionsList"></div>
+        <div class="grid-2">
+          <div><label>Section name</label><input id="gName" placeholder="e.g. Biryani" /></div>
+          <div><label>One-line description</label><input id="gDesc" placeholder="e.g. Dum-cooked rice specials" /></div>
+        </div>
+        <div class="error" id="sectionsError"></div>
+        <button class="primary" id="addSectionBtn">Add section</button>
       </div>
 
       <!-- Menu editor -->

@@ -2,7 +2,7 @@
    (now with photo, veg/non-veg, spicy and dietary tags). */
 (function () {
   const $ = (id) => document.getElementById(id);
-  const state = { token: null, restaurants: [], editingCode: null };
+  const state = { token: null, restaurants: [], editingCode: null, editingGrids: [], gridsCode: null };
 
   /* ---------------------------- Login ----------------------------- */
   $('loginBtn').addEventListener('click', login);
@@ -48,16 +48,31 @@
         '<div class="muted" style="font-size:12px;margin-top:4px">' +
         r.location.lat.toFixed(4) + ', ' + r.location.lng.toFixed(4) +
         ' · radius ' + r.radiusMeters + 'm</div></div>' +
-        '<div></div></div>';
+        '<div class="admin-actions"></div></div>';
 
       const btns = el.querySelector('div > div:last-child');
+      btns.appendChild(mkBtn('Sections', 'ghost', () => openSections(r.code, r.name)));
       btns.appendChild(mkBtn('Menu', 'primary', () => openMenu(r.code, r.name)));
       btns.appendChild(mkBtn(r.active ? 'Pause' : 'Activate', 'ghost', () =>
         patchRestaurant(r.code, { active: !r.active })
       ));
+      btns.appendChild(mkBtn('Password', 'ghost', () => setPassword(r.code, r.name)));
       btns.appendChild(mkBtn('Delete', 'ghost', () => del(r.code)));
       wrap.appendChild(el);
     });
+  }
+
+  /** Update a restaurant's owner login password after creation. */
+  async function setPassword(code, name) {
+    const p = prompt('Set a new owner password for "' + name + '" (code ' + code + '):');
+    if (p == null) return;
+    if (!p.trim()) return alert('Password cannot be empty.');
+    try {
+      await API.patch('/admin/restaurants/' + code, { ownerPassword: p }, state.token);
+      alert('Owner password updated for ' + name + '.');
+    } catch (e) {
+      alert(e.message);
+    }
   }
 
   function mkBtn(text, cls, onClick) {
@@ -117,6 +132,54 @@
       $('addError').textContent = e.message;
     }
   });
+
+  /* ------------------------- Sections (grids) --------------------- */
+  function openSections(code, name) {
+    const r = state.restaurants.find((x) => x.code === code);
+    state.gridsCode = code;
+    state.editingGrids = (r && Array.isArray(r.grids) ? r.grids : []).map((g) => ({ ...g }));
+    $('sectionsTitle').textContent = 'Sections · ' + name + ' (code ' + code + ')';
+    $('sectionsEditor').classList.remove('hidden');
+    $('sectionsEditor').scrollIntoView({ behavior: 'smooth' });
+    renderSections();
+  }
+  function renderSections() {
+    const wrap = $('sectionsList');
+    if (!state.editingGrids.length) {
+      wrap.innerHTML = '<div class="banner warn">No sections yet. Add tiles like "Biryani", "Starters", "Drinks".</div>';
+      return;
+    }
+    wrap.innerHTML = '';
+    state.editingGrids.forEach((g, i) => {
+      const el = document.createElement('div');
+      el.className = 'menu-item';
+      el.innerHTML = '<div><strong>' + esc(g.name) + '</strong>' +
+        (g.description ? '<div class="muted" style="font-size:12px">' + esc(g.description) + '</div>' : '') + '</div>';
+      const b = mkBtn('Remove', 'ghost', () => { state.editingGrids.splice(i, 1); saveSections(); });
+      el.appendChild(b);
+      wrap.appendChild(el);
+    });
+  }
+  async function saveSections() {
+    try {
+      const data = await API.patch('/admin/restaurants/' + state.gridsCode + '/grids',
+        { grids: state.editingGrids }, state.token);
+      // keep the local restaurant copy + editor in sync with the server ids
+      const r = state.restaurants.find((x) => x.code === state.gridsCode);
+      if (r) r.grids = data.restaurant.grids;
+      state.editingGrids = data.restaurant.grids.map((g) => ({ ...g }));
+      renderSections();
+    } catch (e) { $('sectionsError').textContent = e.message; }
+  }
+  $('addSectionBtn').addEventListener('click', () => {
+    $('sectionsError').textContent = '';
+    const name = $('gName').value.trim();
+    if (!name) return ($('sectionsError').textContent = 'Enter a section name');
+    state.editingGrids.push({ name, description: $('gDesc').value.trim() });
+    $('gName').value = ''; $('gDesc').value = '';
+    saveSections();
+  });
+  $('closeSections').addEventListener('click', () => $('sectionsEditor').classList.add('hidden'));
 
   /* --------------------------- Menu ------------------------------- */
   async function openMenu(code, name) {

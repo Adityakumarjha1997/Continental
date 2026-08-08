@@ -57,6 +57,8 @@ function publicRestaurant(r) {
     // Dine-in additions:
     tables: Number(r.tables) || 0,
     paymentQRs: Array.isArray(r.paymentQRs) ? r.paymentQRs : [],
+    // Menu "sections" (grid tiles) designed by admin; dishes reference a grid id.
+    grids: Array.isArray(r.grids) ? r.grids : [],
   };
 }
 
