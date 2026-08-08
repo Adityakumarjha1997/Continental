@@ -144,9 +144,14 @@
       const el = document.createElement('button');
       el.className = 'grid-tile';
       el.innerHTML =
+        (g.image
+          ? '<div class="gt-img" style="background-image:url(\'' + esc(g.image) + '\')"></div>'
+          : '<div class="gt-img gt-img-ph">' + esc((g.name || '?').charAt(0).toUpperCase()) + '</div>') +
+        '<div class="gt-body">' +
         '<div class="gt-name">' + esc(g.name) + '</div>' +
         (g.description ? '<div class="gt-desc">' + esc(g.description) + '</div>' : '') +
-        '<div class="gt-count">' + count + (count === 1 ? ' item' : ' items') + '</div>';
+        '<div class="gt-count">' + count + (count === 1 ? ' item' : ' items') + '</div>' +
+        '</div>';
       el.onclick = () => openSection(g);
       tiles.appendChild(el);
     });
@@ -225,24 +230,25 @@
   }
 
   /* ------------------------- Geolocation -------------------------- */
+  // Compact geo indicator: a small ✓ / ⚠️ chip at the top (tap ⚠️ for details).
+  function setGeo(ok, msg) {
+    const el = $('geoBanner');
+    el.className = 'geo-chip ' + (ok ? 'ok' : 'warn');
+    el.textContent = ok ? '✓' : '⚠️';
+    el.title = msg;
+    el.onclick = ok ? null : () => alert(msg);
+  }
   async function checkLocation() {
-    const banner = $('geoBanner');
     try {
       state.location = await getPosition();
       const res = await API.post('/public/restaurants/' + state.code + '/geocheck', state.location);
       state.withinRange = res.withinRange;
-      if (res.withinRange) {
-        banner.className = 'banner ok';
-        banner.textContent = 'You are at ' + state.restaurant.name + ' — go ahead and order.';
-      } else {
-        banner.className = 'banner danger';
-        banner.textContent = 'You are ~' + res.distanceMeters + 'm away. You must be within ' +
-          res.radiusMeters + 'm (i.e. inside the restaurant) to order.';
-      }
+      if (res.withinRange) setGeo(true, 'You are at ' + state.restaurant.name + ' — you can order.');
+      else setGeo(false, 'You are ~' + res.distanceMeters + 'm away. You must be within ' +
+        res.radiusMeters + 'm (inside the restaurant) to order.');
     } catch (e) {
       state.withinRange = false;
-      banner.className = 'banner danger';
-      banner.textContent = 'Location unavailable — ordering is blocked. Enable location and reload.';
+      setGeo(false, 'Location unavailable — ordering is blocked. Enable location and reload the page.');
     }
     renderCartBar();
   }
@@ -426,11 +432,12 @@
     localStorage.setItem(HKEY, JSON.stringify(list));
   }
 
-  $('myOrdersBtn').addEventListener('click', () => { renderMyOrders(); show('ordersScreen'); });
+  // Bottom nav: My orders + change restaurant.
+  $('navOrders').addEventListener('click', () => { renderMyOrders(); show('ordersScreen'); });
   $('ordersBackBtn').addEventListener('click', () => show('menuScreen'));
 
   // Change restaurant: clear the current code/cart and go back to the keypad.
-  $('menuBackBtn').addEventListener('click', () => {
+  $('navBack').addEventListener('click', () => {
     state.code = '';
     state.cart = {};
     state.restaurant = null;
@@ -491,6 +498,8 @@
     ['loginScreen', 'keypadScreen', 'menuScreen', 'checkoutScreen', 'trackScreen', 'ordersScreen'].forEach((s) =>
       $(s).classList.toggle('hidden', s !== id)
     );
+    // Bottom nav is only relevant while browsing the menu.
+    $('bottomNav').classList.toggle('hidden', id !== 'menuScreen');
   }
   function timeAgo(iso) {
     const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);

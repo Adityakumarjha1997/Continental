@@ -7,6 +7,8 @@
     restaurant: null,
     menu: [],
     cart: {}, // itemId -> qty
+    view: 'grouped', // 'tiles' | 'section' | 'grouped'
+    currentGrid: null,
     location: null,
     withinRange: false,
     orderToken: null,
@@ -91,48 +93,118 @@
     return '<div class="mi-tags">' + item.tags.map((t) => '<span class="tag">' + esc(t) + '</span>').join('') + '</div>';
   }
 
+  /* Build one dish row (shared by section view + legacy grouped view). */
+  function itemRow(item) {
+    const row = document.createElement('div');
+    row.className = 'menu-item' + (item.available ? '' : ' unavailable');
+    const qty = state.cart[item.id] || 0;
+    row.innerHTML =
+      '<div class="mi-main">' + thumb(item) +
+      '<div class="mi-info">' +
+      '<div class="name">' + badges(item) + esc(item.name) + (item.available ? '' : ' · sold out') + '</div>' +
+      tagPills(item) + '<div class="price">' + money(item.price) + '</div>' +
+      '</div></div>';
+    const controls = document.createElement('div');
+    if (item.available) {
+      controls.className = 'qty';
+      controls.innerHTML =
+        '<button class="round-btn" data-dec="' + item.id + '">−</button>' +
+        '<span>' + qty + '</span>' +
+        '<button class="round-btn brand" data-inc="' + item.id + '">+</button>';
+    }
+    row.appendChild(controls);
+    return row;
+  }
+  function wireQty(container) {
+    container.querySelectorAll('[data-inc]').forEach((b) => b.addEventListener('click', () => changeQty(b.dataset.inc, 1)));
+    container.querySelectorAll('[data-dec]').forEach((b) => b.addEventListener('click', () => changeQty(b.dataset.dec, -1)));
+  }
+  function grids() { return (state.restaurant && state.restaurant.grids) || []; }
+  function itemsForGrid(g) {
+    if (g.__more) return state.menu.filter((m) => !m.gridId && !grids().some((x) => x.name === m.category));
+    return state.menu.filter((m) => m.gridId === g.id || (!m.gridId && m.category === g.name));
+  }
+
+  /* Entry point: section tiles if the restaurant has sections, else a flat list. */
   function renderMenu() {
+    if (grids().length) { state.view = 'tiles'; showTiles(); }
+    else { state.view = 'grouped'; renderGrouped(); }
+  }
+
+  function showTiles() {
+    state.view = 'tiles';
+    state.currentGrid = null;
+    const tiles = $('gridTiles');
+    tiles.innerHTML = '';
+    const gs = grids().slice();
+    const more = state.menu.filter((m) => !m.gridId && !gs.some((x) => x.name === m.category));
+    if (more.length) gs.push({ id: '__more__', name: 'More', description: 'Other items', __more: true });
+    gs.forEach((g) => {
+      const count = itemsForGrid(g).filter((i) => i.available).length;
+      const el = document.createElement('button');
+      el.className = 'grid-tile';
+      el.innerHTML =
+        '<div class="gt-name">' + esc(g.name) + '</div>' +
+        (g.description ? '<div class="gt-desc">' + esc(g.description) + '</div>' : '') +
+        '<div class="gt-count">' + count + (count === 1 ? ' item' : ' items') + '</div>';
+      el.onclick = () => openSection(g);
+      tiles.appendChild(el);
+    });
+    tiles.classList.remove('hidden');
+    $('menuList').classList.add('hidden');
+    $('sectionsBackBtn').classList.add('hidden');
+    $('sectionTitle').classList.add('hidden');
+    renderCartBar();
+  }
+
+  function openSection(g) {
+    state.view = 'section';
+    state.currentGrid = g;
+    renderSection();
+    $('gridTiles').classList.add('hidden');
+    $('menuList').classList.remove('hidden');
+    $('sectionsBackBtn').classList.remove('hidden');
+    const t = $('sectionTitle');
+    t.textContent = g.name;
+    t.classList.remove('hidden');
+  }
+  function renderSection() {
+    const list = itemsForGrid(state.currentGrid);
+    const wrap = $('menuList');
+    wrap.innerHTML = '';
+    if (!list.length) wrap.innerHTML = '<div class="banner warn">No items in this section yet.</div>';
+    list.forEach((it) => wrap.appendChild(itemRow(it)));
+    wireQty(wrap);
+    renderCartBar();
+  }
+  function renderGrouped() {
     const list = $('menuList');
+    list.innerHTML = '';
     const groups = {};
     state.menu.forEach((m) => { (groups[m.category] = groups[m.category] || []).push(m); });
-    list.innerHTML = '';
     Object.keys(groups).forEach((cat) => {
       const title = document.createElement('div');
       title.className = 'category-title';
       title.textContent = cat;
       list.appendChild(title);
-      groups[cat].forEach((item) => {
-        const row = document.createElement('div');
-        row.className = 'menu-item' + (item.available ? '' : ' unavailable');
-        const qty = state.cart[item.id] || 0;
-        row.innerHTML =
-          '<div class="mi-main">' + thumb(item) +
-          '<div class="mi-info">' +
-          '<div class="name">' + badges(item) + esc(item.name) + (item.available ? '' : ' · sold out') + '</div>' +
-          tagPills(item) + '<div class="price">' + money(item.price) + '</div>' +
-          '</div></div>';
-        const controls = document.createElement('div');
-        if (item.available) {
-          controls.className = 'qty';
-          controls.innerHTML =
-            '<button class="round-btn" data-dec="' + item.id + '">−</button>' +
-            '<span>' + qty + '</span>' +
-            '<button class="round-btn brand" data-inc="' + item.id + '">+</button>';
-        }
-        row.appendChild(controls);
-        list.appendChild(row);
-      });
+      groups[cat].forEach((it) => list.appendChild(itemRow(it)));
     });
-    list.querySelectorAll('[data-inc]').forEach((b) => b.addEventListener('click', () => changeQty(b.dataset.inc, 1)));
-    list.querySelectorAll('[data-dec]').forEach((b) => b.addEventListener('click', () => changeQty(b.dataset.dec, -1)));
+    wireQty(list);
+    list.classList.remove('hidden');
+    $('gridTiles').classList.add('hidden');
     renderCartBar();
+  }
+  function rerender() {
+    if (state.view === 'section') renderSection();
+    else if (state.view === 'grouped') renderGrouped();
+    else showTiles();
   }
 
   function changeQty(id, delta) {
     const next = (state.cart[id] || 0) + delta;
     if (next <= 0) delete state.cart[id];
     else state.cart[id] = next;
-    renderMenu();
+    rerender();
   }
   function cartLines() {
     return Object.keys(state.cart).map((id) => {
@@ -201,6 +273,7 @@
     show('checkoutScreen');
   }
   $('backToMenu').addEventListener('click', () => show('menuScreen'));
+  $('sectionsBackBtn').addEventListener('click', () => showTiles());
 
   $('payBtn').addEventListener('click', async () => {
     $('checkoutError').textContent = '';
@@ -355,6 +428,18 @@
 
   $('myOrdersBtn').addEventListener('click', () => { renderMyOrders(); show('ordersScreen'); });
   $('ordersBackBtn').addEventListener('click', () => show('menuScreen'));
+
+  // Change restaurant: clear the current code/cart and go back to the keypad.
+  $('menuBackBtn').addEventListener('click', () => {
+    state.code = '';
+    state.cart = {};
+    state.restaurant = null;
+    state.menu = [];
+    codeDisplay.textContent = '';
+    $('hotelBox').classList.add('hidden');
+    $('appTopbar').classList.remove('menu-mode');
+    show('keypadScreen');
+  });
 
   function renderMyOrders() {
     const list = loadHistory();

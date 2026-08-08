@@ -82,12 +82,11 @@
     <!-- STEP 2: menu -->
     <section id="menuScreen" class="screen hidden">
       <div class="menu-toolbar">
-        <button class="ghost" id="menuBackBtn">&larr; Change</button>
-        <div id="geoBanner" class="banner warn">Checking your location&hellip;</div>
-        <button class="ghost" id="myOrdersBtn">My orders</button>
+        <button class="ghost hidden" id="sectionsBackBtn">&larr; All sections</button>
+        <div id="sectionTitle" class="category-title hidden" style="margin:0"></div>
+        <span class="tb-spacer"></span>
+        <span id="geoBanner" class="geo-chip" title="Checking your location…">⏳</span>
       </div>
-      <button class="ghost hidden" id="sectionsBackBtn">&larr; All sections</button>
-      <div id="sectionTitle" class="category-title hidden"></div>
       <div id="gridTiles" class="grid-tiles hidden"></div>
       <div id="menuList"></div>
       <div class="spacer"></div>
@@ -129,6 +128,16 @@
       <h3>My recent orders</h3>
       <div id="ordersList"></div>
     </section>
+
+    <!-- Bottom navigation (shown on the menu screen) -->
+    <nav id="bottomNav" class="bottom-nav hidden">
+      <button class="bn-item" id="navBack">
+        <span class="bn-ico">🏠</span><span class="bn-lbl">Restaurants</span>
+      </button>
+      <button class="bn-item" id="navOrders">
+        <span class="bn-ico">🧾</span><span class="bn-lbl">My orders</span>
+      </button>
+    </nav>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>

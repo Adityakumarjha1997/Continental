@@ -66,6 +66,23 @@
       <!-- Menu -->
       <div id="menuView" class="hidden">
         <div class="card">
+          <h4>Menu sections</h4>
+          <p class="muted" style="font-size:13px;margin-top:0">
+            The tiles customers tap (e.g. <b>Biryani</b>). Add a name, a one-line description and an optional photo.
+          </p>
+          <div id="sectionsList"></div>
+          <div class="grid-2">
+            <div><label>Section name</label><input id="gName" placeholder="e.g. Biryani" /></div>
+            <div><label>One-line description</label><input id="gDesc" placeholder="e.g. Dum-cooked rice specials" /></div>
+          </div>
+          <label>Section photo (optional)</label>
+          <input type="file" id="gImgFile" accept="image/*" />
+          <img id="gImgPreview" class="img-preview hidden" alt="" />
+          <div class="error" id="sectionsError"></div>
+          <button class="ghost" id="addSectionBtn">Add section</button>
+        </div>
+
+        <div class="card">
           <h4>Add menu item</h4>
           <div class="grid-2">
             <div><label>Item name</label><input id="mName" placeholder="e.g. Paneer Tikka" /></div>
@@ -77,7 +94,11 @@
               <select id="mGrid"></select>
               <input id="mCategory" class="hidden" placeholder="e.g. Starters" />
             </div>
-            <div><label>Photo URL (optional)</label><input id="mImg" placeholder="https://…/dish.jpg" /></div>
+            <div>
+              <label>Photo (optional)</label>
+              <input type="file" id="mImgFile" accept="image/*" />
+              <img id="mImgPreview" class="img-preview hidden" alt="" />
+            </div>
           </div>
           <div class="menu-flags">
             <label class="chk"><input type="checkbox" id="mVeg" checked /> Veg</label>

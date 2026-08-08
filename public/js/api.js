@@ -89,6 +89,41 @@ window.requestNotifyPermission = function () {
   } catch (_) {}
 };
 
+/* Read an image file and return a downscaled/compressed data URL, so photos can
+   be attached (uploaded) and stored inline without any file-storage service.
+   Default: max 600px on the long edge, JPEG quality 0.7 (~30-80 KB). */
+window.readImageAsDataURL = function (file, maxDim, quality) {
+  maxDim = maxDim || 600;
+  quality = quality || 0.7;
+  return new Promise((resolve, reject) => {
+    if (!file) return reject(new Error('No file selected'));
+    if (!/^image\//.test(file.type)) return reject(new Error('Please choose an image file'));
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read the file'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('That file is not a valid image'));
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w >= h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+          else { w = Math.round((w * maxDim) / h); h = maxDim; }
+        }
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (e) {
+          resolve(reader.result); // fallback: original data URL
+        }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
 /* Add a show/hide eye button to every password field on the page. */
 window.enhancePasswordInputs = function () {
   document.querySelectorAll('input[type="password"]').forEach((inp) => {

@@ -3,7 +3,10 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const money = (n) => '₹' + Number(n).toFixed(0);
-  const state = { token: null, restaurant: null, orders: [], staff: [], menu: [], socket: null };
+  const state = {
+    token: null, restaurant: null, orders: [], staff: [], menu: [], socket: null,
+    newItemImage: '', newSectionImage: '',
+  };
 
   /* ---------------------------- Login ----------------------------- */
   $('loginBtn').addEventListener('click', login);
@@ -276,6 +279,7 @@
       const r = await API.get('/owner/restaurant', state.token);
       if (r && r.restaurant) state.restaurant = r.restaurant;
     } catch (_) {}
+    renderSections();
     populateSections();
     try {
       const data = await API.get('/owner/menu', state.token);
@@ -286,20 +290,91 @@
     }
   }
 
-  // Section picker: use the admin-defined grids if any, else a free-text fallback.
+  function grids() { return (state.restaurant && state.restaurant.grids) || []; }
+
+  // Section picker for the add-dish form: dropdown of sections, else free text.
   function populateSections() {
-    const grids = (state.restaurant && state.restaurant.grids) || [];
+    const gs = grids();
     const sel = $('mGrid');
     const txt = $('mCategory');
-    if (grids.length) {
+    if (gs.length) {
       sel.classList.remove('hidden');
       txt.classList.add('hidden');
-      sel.innerHTML = grids.map((g) => '<option value="' + g.id + '">' + esc(g.name) + '</option>').join('');
+      sel.innerHTML = gs.map((g) => '<option value="' + g.id + '">' + esc(g.name) + '</option>').join('');
     } else {
       sel.classList.add('hidden');
       txt.classList.remove('hidden');
     }
   }
+
+  /* --------------------- Sections (owner-managed) ----------------- */
+  function renderSections() {
+    const wrap = $('sectionsList');
+    const gs = grids();
+    if (!gs.length) {
+      wrap.innerHTML = '<div class="banner warn" style="margin-bottom:10px">No sections yet. Add tiles like "Biryani", "Starters", "Drinks".</div>';
+      return;
+    }
+    wrap.innerHTML = '';
+    gs.forEach((g) => {
+      const el = document.createElement('div');
+      el.className = 'menu-item';
+      el.innerHTML =
+        '<div class="mi-main">' +
+        (g.image ? '<div class="mi-thumb" style="background-image:url(\'' + esc(g.image) + '\')"></div>'
+                 : '<div class="mi-thumb placeholder">' + esc((g.name || '?').charAt(0).toUpperCase()) + '</div>') +
+        '<div class="mi-info"><div class="name">' + esc(g.name) + '</div>' +
+        (g.description ? '<div class="muted" style="font-size:12px">' + esc(g.description) + '</div>' : '') +
+        '</div></div>';
+      const b = document.createElement('button');
+      b.className = 'ghost'; b.style.width = 'auto'; b.textContent = 'Remove';
+      b.onclick = () => {
+        if (!confirm('Remove section "' + g.name + '"? (dishes stay, but lose this section)')) return;
+        saveGrids(gs.filter((x) => x.id !== g.id));
+      };
+      el.appendChild(b);
+      wrap.appendChild(el);
+    });
+  }
+  async function saveGrids(list) {
+    try {
+      const data = await API.patch('/owner/grids', { grids: list }, state.token);
+      state.restaurant = data.restaurant;
+      renderSections();
+      populateSections();
+    } catch (e) { $('sectionsError').textContent = e.message; }
+  }
+  // Image attach: sections
+  $('gImgFile').addEventListener('change', async (e) => {
+    $('sectionsError').textContent = '';
+    const f = e.target.files && e.target.files[0];
+    if (!f) { state.newSectionImage = ''; $('gImgPreview').classList.add('hidden'); return; }
+    try {
+      state.newSectionImage = await readImageAsDataURL(f);
+      $('gImgPreview').src = state.newSectionImage;
+      $('gImgPreview').classList.remove('hidden');
+    } catch (err) { $('sectionsError').textContent = err.message; }
+  });
+  $('addSectionBtn').addEventListener('click', () => {
+    $('sectionsError').textContent = '';
+    const name = $('gName').value.trim();
+    if (!name) return ($('sectionsError').textContent = 'Enter a section name');
+    const next = grids().concat([{ name, description: $('gDesc').value.trim(), image: state.newSectionImage }]);
+    saveGrids(next);
+    $('gName').value = ''; $('gDesc').value = ''; $('gImgFile').value = '';
+    state.newSectionImage = ''; $('gImgPreview').classList.add('hidden');
+  });
+  // Image attach: dishes
+  $('mImgFile').addEventListener('change', async (e) => {
+    $('menuError').textContent = '';
+    const f = e.target.files && e.target.files[0];
+    if (!f) { state.newItemImage = ''; $('mImgPreview').classList.add('hidden'); return; }
+    try {
+      state.newItemImage = await readImageAsDataURL(f);
+      $('mImgPreview').src = state.newItemImage;
+      $('mImgPreview').classList.remove('hidden');
+    } catch (err) { $('menuError').textContent = err.message; }
+  });
   function renderMenu() {
     const body = $('menuBody');
     if (!state.menu.length) {
@@ -340,12 +415,12 @@
     $('menuError').textContent = '';
     const usingGrids = !$('mGrid').classList.contains('hidden');
     if (usingGrids && !$('mGrid').value) {
-      return ($('menuError').textContent = 'No sections yet — ask the admin to add sections first.');
+      return ($('menuError').textContent = 'No sections yet — add a section above first.');
     }
     const payload = {
       name: $('mName').value.trim(),
       price: parseFloat($('mPrice').value),
-      imageUrl: $('mImg').value.trim(),
+      imageUrl: state.newItemImage,
       isVeg: $('mVeg').checked,
       spicy: $('mSpicy').checked,
       tags: $('mTags').value.trim(),
@@ -354,8 +429,9 @@
     else payload.category = $('mCategory').value.trim() || 'General';
     try {
       await API.post('/owner/menu', payload, state.token);
-      ['mName', 'mPrice', 'mCategory', 'mImg', 'mTags'].forEach((id) => ($(id).value = ''));
+      ['mName', 'mPrice', 'mCategory', 'mTags'].forEach((id) => ($(id).value = ''));
       $('mVeg').checked = true; $('mSpicy').checked = false;
+      $('mImgFile').value = ''; state.newItemImage = ''; $('mImgPreview').classList.add('hidden');
       loadMenu();
     } catch (e) { $('menuError').textContent = e.message; }
   });

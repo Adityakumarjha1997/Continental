@@ -127,6 +127,7 @@ router.patch('/restaurants/:code/grids', requireAdmin, async (req, res, next) =>
         id: g.id || crypto.randomUUID(),
         name: String(g.name || '').slice(0, 60).trim(),
         description: String(g.description || '').slice(0, 140).trim(),
+        image: String(g.image || '').slice(0, 400000),
       }))
       .filter((g) => g.name);
     const updated = await restaurantRepo.update(req.params.code, { grids });

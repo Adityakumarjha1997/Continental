@@ -51,7 +51,6 @@
         '<div class="admin-actions"></div></div>';
 
       const btns = el.querySelector('div > div:last-child');
-      btns.appendChild(mkBtn('Sections', 'ghost', () => openSections(r.code, r.name)));
       btns.appendChild(mkBtn('Menu', 'primary', () => openMenu(r.code, r.name)));
       btns.appendChild(mkBtn(r.active ? 'Pause' : 'Activate', 'ghost', () =>
         patchRestaurant(r.code, { active: !r.active })

@@ -161,6 +161,32 @@ router.patch('/settings', requireOwner, async (req, res, next) => {
   }
 });
 
+/* ------------------------------ Sections ------------------------------- */
+/* Owners design their own section tiles (grids): name, one-line description and
+   an optional photo (data URL or https). Two levels only: section -> dishes. */
+
+router.patch('/grids', requireOwner, async (req, res, next) => {
+  try {
+    if (!Array.isArray(req.body.grids)) {
+      return res.status(400).json({ error: 'grids must be a list' });
+    }
+    const grids = req.body.grids
+      .slice(0, 50)
+      .map((g) => ({
+        id: g.id || crypto.randomUUID(),
+        name: String(g.name || '').slice(0, 60).trim(),
+        description: String(g.description || '').slice(0, 140).trim(),
+        image: String(g.image || '').slice(0, 400000),
+      }))
+      .filter((g) => g.name);
+    const updated = await restaurantRepo.update(req.owner.code, { grids });
+    if (!updated) return res.status(404).json({ error: 'Restaurant not found' });
+    res.json({ restaurant: orderService.publicRestaurant(updated) });
+  } catch (e) {
+    next(e);
+  }
+});
+
 /* -------------------------------- Menu --------------------------------- */
 /* Owners manage their own restaurant's menu (moved here from the admin panel). */
 
