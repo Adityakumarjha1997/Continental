@@ -11,7 +11,7 @@ const staffRepo = require('../repositories/staffRepository');
 const orderService = require('../services/orderService');
 const authService = require('../services/authService');
 const { requireOwner } = require('../middleware/auth');
-const { pushOrder } = require('../realtime/socket');
+const { pushOrder, pushStaff } = require('../realtime/socket');
 
 /** Normalise the optional "rich" menu fields (photo, veg, spicy, tags). */
 function normalizeMenuFields(body) {
@@ -109,6 +109,7 @@ router.post('/staff', requireOwner, async (req, res, next) => {
       passwordHash: authService.hashPassword(String(password)),
       onShift: false,
     });
+    pushStaff(req.app.get('io'), req.owner.code);
     res.status(201).json({ staff: sanitizeStaff(staff) });
   } catch (e) {
     next(e);
@@ -122,6 +123,7 @@ router.delete('/staff/:id', requireOwner, async (req, res, next) => {
       return res.status(404).json({ error: 'Staff member not found' });
     }
     await staffRepo.remove(req.params.id);
+    pushStaff(req.app.get('io'), req.owner.code);
     res.json({ ok: true });
   } catch (e) {
     next(e);

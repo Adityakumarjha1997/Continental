@@ -93,4 +93,13 @@ function pushOrder(io, order, event = 'order:update') {
   io.to('order:' + order.id).emit('order:update', orderService.publicOrderView(order));
 }
 
-module.exports = { initSocket, pushOrder };
+/**
+ * Signal the owner board that this restaurant's staff changed (a waiter clocked
+ * on/off, or a staff member was added/removed) so it can refresh instantly.
+ */
+function pushStaff(io, code) {
+  if (!io || !code) return;
+  io.to('restaurant:' + code).emit('staff:update', { code: String(code) });
+}
+
+module.exports = { initSocket, pushOrder, pushStaff };

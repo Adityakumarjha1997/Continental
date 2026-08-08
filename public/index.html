@@ -82,7 +82,7 @@
     <!-- STEP 2: menu -->
     <section id="menuScreen" class="screen hidden">
       <div class="menu-toolbar">
-        <button class="ghost hidden" id="sectionsBackBtn">&larr; All sections</button>
+        <button class="ic ic-sm hidden" id="sectionsBackBtn" data-icon="back" aria-label="All sections"></button>
         <div id="sectionTitle" class="category-title hidden" style="margin:0"></div>
         <span class="tb-spacer"></span>
         <span id="geoBanner" class="geo-chip" title="Checking your location…">⏳</span>
@@ -98,7 +98,7 @@
 
     <!-- STEP 3: checkout -->
     <section id="checkoutScreen" class="screen hidden">
-      <button class="ghost" id="backToMenu">&larr; Back to menu</button>
+      <button class="ic ic-sm" id="backToMenu" data-icon="back" aria-label="Back to menu"></button>
       <h3>Your order</h3>
       <div id="checkoutItems" class="card"></div>
       <label>Your table number <span id="tableHint" class="muted"></span></label>
@@ -124,18 +124,18 @@
 
     <!-- My orders (history + reorder) -->
     <section id="ordersScreen" class="screen hidden">
-      <button class="ghost" id="ordersBackBtn">&larr; Back</button>
+      <button class="ic ic-sm" id="ordersBackBtn" data-icon="back" aria-label="Back"></button>
       <h3>My recent orders</h3>
       <div id="ordersList"></div>
     </section>
 
     <!-- Bottom navigation (shown on the menu screen) -->
     <nav id="bottomNav" class="bottom-nav hidden">
-      <button class="bn-item" id="navBack">
-        <span class="bn-ico">🏠</span><span class="bn-lbl">Restaurants</span>
+      <button class="bn-item" id="navBack" aria-label="Restaurants">
+        <span class="ic" data-icon="home"></span><span class="bn-lbl">Restaurants</span>
       </button>
-      <button class="bn-item" id="navOrders">
-        <span class="bn-ico">🧾</span><span class="bn-lbl">My orders</span>
+      <button class="bn-item" id="navOrders" aria-label="My orders">
+        <span class="ic" data-icon="orders"></span><span class="bn-lbl">My orders</span>
       </button>
     </nav>
   </div>

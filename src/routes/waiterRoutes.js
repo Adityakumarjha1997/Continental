@@ -9,7 +9,7 @@ const staffRepo = require('../repositories/staffRepository');
 const orderService = require('../services/orderService');
 const authService = require('../services/authService');
 const { requireWaiter } = require('../middleware/auth');
-const { pushOrder } = require('../realtime/socket');
+const { pushOrder, pushStaff } = require('../realtime/socket');
 
 /**
  * Waiter login: restaurant code + username + password (owner-created account).
@@ -23,6 +23,7 @@ router.post('/login', async (req, res) => {
     return res.status(401).json({ error: 'Invalid code, username or password' });
   }
   await staffRepo.update(staff.id, { onShift: true });
+  pushStaff(req.app.get('io'), code);
   const restaurant = restaurantRepo.findByCode(code);
   const token = authService.signToken({ role: 'waiter', code: String(code), sid: staff.id, name: staff.name });
   res.json({
@@ -37,6 +38,7 @@ router.patch('/shift', requireWaiter, async (req, res, next) => {
   try {
     const onShift = req.body.onShift !== false;
     await staffRepo.update(req.waiter.sid, { onShift });
+    pushStaff(req.app.get('io'), req.waiter.code);
     res.json({ onShift });
   } catch (e) {
     next(e);

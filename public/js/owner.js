@@ -38,7 +38,12 @@
     state.orders = data.orders;
     renderAll();
     connectSocket();
-    setInterval(refreshOrders, 8000); // safety-net if a socket event is missed
+    // Live refresh: orders always; the staff list too while the Staff tab is open
+    // (so waiter on-shift/off-shift status updates without switching tabs).
+    setInterval(() => {
+      refreshOrders();
+      if (!$('staffView').classList.contains('hidden')) loadStaff();
+    }, 6000);
   }
 
   async function refreshOrders() {
@@ -92,6 +97,10 @@
       if (i >= 0) state.orders[i] = o; else state.orders.unshift(o);
       renderAll();
       if (!$('analyticsView').classList.contains('hidden')) loadAnalytics();
+    });
+    // Instant staff status: a waiter clocked on/off, or staff added/removed.
+    socket.on('staff:update', () => {
+      if (!$('staffView').classList.contains('hidden')) loadStaff();
     });
   }
   function setOnline(on) {

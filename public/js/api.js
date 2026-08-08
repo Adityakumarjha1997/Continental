@@ -89,6 +89,23 @@ window.requestNotifyPermission = function () {
   } catch (_) {}
 };
 
+/* Reusable line-icon set. Any element with class "ic" + data-icon="<name>" gets
+   the matching glyph injected, so the same back/home/orders icons render
+   identically across every page. Call applyIcons() again after dynamic renders. */
+window.Icons = {
+  back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
+  home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.4 12 4l9 7.4"/><path d="M5.5 10v9.5h13V10"/></svg>',
+  orders: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6"/><path d="M9 12h6"/></svg>',
+  cart: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h2l2.2 10.5h9.1L20 8H7"/><circle cx="10" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/></svg>',
+};
+window.applyIcons = function (root) {
+  (root || document).querySelectorAll('[data-icon]').forEach((el) => {
+    if (el.dataset.iconDone) return;
+    const svg = Icons[el.dataset.icon];
+    if (svg) { el.insertAdjacentHTML('beforeend', svg); el.dataset.iconDone = '1'; }
+  });
+};
+
 /* Read an image file and return a downscaled/compressed data URL, so photos can
    be attached (uploaded) and stored inline without any file-storage service.
    Default: max 600px on the long edge, JPEG quality 0.7 (~30-80 KB). */
@@ -152,6 +169,7 @@ window.enhancePasswordInputs = function () {
 (function boot() {
   Theme.init();
   enhancePasswordInputs();
+  applyIcons();
 
   // Inject a small floating dark-mode toggle so no page markup has to change.
   const fab = document.createElement('button');

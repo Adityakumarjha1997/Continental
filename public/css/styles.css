@@ -698,20 +698,41 @@ html[data-theme="dark"] .grid-tile { background: var(--card-solid); border-color
 .geo-chip.ok { background: #e7f6ec; color: var(--ok); border-color: #bbf7d0; }
 .geo-chip.warn { background: #fdecec; color: var(--danger); border-color: #fecaca; cursor: pointer; }
 
-/* Bottom navigation bar (Restaurants + My orders) */
+/* Reusable "circle-within-circle" icon buttons. Any page: class="ic" (or
+   "ic ic-sm") + data-icon="back|home|orders|cart"; api.js injects the glyph. */
+.ic {
+  position: relative; width: 54px; height: 54px; border-radius: 50%;
+  border: 2px solid rgba(99, 102, 241, 0.30);
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.18);
+  cursor: pointer; padding: 0; flex: 0 0 auto;
+  transition: transform 0.12s ease, box-shadow 0.15s ease;
+}
+.ic::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--grad-2); }
+.ic svg {
+  position: absolute; inset: 0; margin: auto; width: 22px; height: 22px; z-index: 1;
+  stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; fill: none;
+}
+.ic:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(99, 102, 241, 0.28); }
+.ic:active { transform: scale(0.94); }
+.ic-sm { width: 40px; height: 40px; }
+.ic-sm::before { inset: 4px; }
+.ic-sm svg { width: 17px; height: 17px; }
+
+/* Bottom navigation: transparent (no white bar), just the two badge icons */
 .bottom-nav {
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
   width: 100%; max-width: 480px; z-index: 25;
-  display: flex; background: var(--card-solid); border-top: 1.5px solid var(--border);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+  display: flex; justify-content: space-around; align-items: flex-end;
+  background: transparent; border: none; box-shadow: none;
+  padding: 0 24px 10px; pointer-events: none;
 }
 .bn-item {
-  flex: 1; border: none; background: transparent; cursor: pointer;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 8px 0 10px; font-size: 11px; font-weight: 700; color: var(--muted);
+  border: none; background: transparent; cursor: pointer; pointer-events: auto;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 700; color: var(--ink);
 }
-.bn-item:active { color: var(--brand-1); }
-.bn-ico { font-size: 20px; line-height: 1; }
 
 /* When the bottom nav is present, lift the cart bar above it + more scroll room */
 .cart-bar { bottom: 74px; }
@@ -724,6 +745,6 @@ html[data-theme="dark"] .grid-tile { background: var(--card-solid); border-color
 }
 input[type="file"] { padding: 9px 12px; background: #fff; }
 html[data-theme="dark"] input[type="file"] { background: #1b1836; color: var(--text); }
-html[data-theme="dark"] .bottom-nav { background: var(--card-solid); border-top-color: #2a2748; }
+html[data-theme="dark"] .ic { background: rgba(30, 27, 58, 0.72); border-color: rgba(139, 92, 246, 0.42); }
 html[data-theme="dark"] .geo-chip.ok { background: rgba(22, 163, 74, 0.15); }
 html[data-theme="dark"] .geo-chip.warn { background: rgba(220, 38, 38, 0.15); }
