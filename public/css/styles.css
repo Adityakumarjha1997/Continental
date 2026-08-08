@@ -688,7 +688,7 @@ input[type="password"]::-ms-clear { display: none; }
 html[data-theme="dark"] .grid-tile { background: var(--card-solid); border-color: #2a2748; }
 
 /* Compact geo indicator chip (replaces the big location banner) */
-.menu-toolbar { gap: 8px; }
+.menu-toolbar { gap: 10px; align-items: center; margin: 6px 0 18px; }
 .tb-spacer { flex: 1; }
 .geo-chip {
   display: inline-flex; align-items: center; justify-content: center;
@@ -726,7 +726,7 @@ html[data-theme="dark"] .grid-tile { background: var(--card-solid); border-color
   width: 100%; max-width: 480px; z-index: 25;
   display: flex; justify-content: space-around; align-items: flex-end;
   background: transparent; border: none; box-shadow: none;
-  padding: 0 24px 10px; pointer-events: none;
+  padding: 0 24px 16px; pointer-events: none;
 }
 .bn-item {
   border: none; background: transparent; cursor: pointer; pointer-events: auto;
@@ -734,9 +734,10 @@ html[data-theme="dark"] .grid-tile { background: var(--card-solid); border-color
   font-size: 11px; font-weight: 700; color: var(--ink);
 }
 
-/* When the bottom nav is present, lift the cart bar above it + more scroll room */
-.cart-bar { bottom: 74px; }
-.spacer { height: 150px; }
+/* When the bottom nav is present, lift the cart bar clearly above it, with a
+   visible gap, and leave enough scroll room below the content. */
+.cart-bar { bottom: 104px; }
+.spacer { height: 190px; }
 
 /* Uploaded-image preview + file inputs (owner add section / dish) */
 .img-preview {
