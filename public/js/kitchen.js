@@ -38,6 +38,15 @@
     state.orders = data.orders;
     render();
     connectSocket();
+    setInterval(refresh, 7000); // safety-net if a socket event is missed
+  }
+
+  async function refresh() {
+    try {
+      const data = await API.get('/kitchen/orders', state.token);
+      state.orders = data.orders;
+      render();
+    } catch (_) {}
   }
 
   $('logoutBtn').addEventListener('click', () => location.reload());
@@ -100,7 +109,14 @@
 
   async function act(id, path) {
     try {
-      await API.patch('/kitchen/orders/' + id + '/' + path, null, state.token);
+      const res = await API.patch('/kitchen/orders/' + id + '/' + path, null, state.token);
+      if (res && res.order) {
+        const inKitchen = IN_KITCHEN.includes(res.order.status);
+        const i = state.orders.findIndex((x) => x.id === res.order.id);
+        if (!inKitchen) { if (i >= 0) state.orders.splice(i, 1); }
+        else if (i >= 0) state.orders[i] = res.order;
+        render();
+      }
     } catch (e) {
       alert(e.message);
     }

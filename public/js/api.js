@@ -89,9 +89,34 @@ window.requestNotifyPermission = function () {
   } catch (_) {}
 };
 
+/* Add a show/hide eye button to every password field on the page. */
+window.enhancePasswordInputs = function () {
+  document.querySelectorAll('input[type="password"]').forEach((inp) => {
+    if (inp.dataset.pwEnhanced) return;
+    inp.dataset.pwEnhanced = '1';
+    const wrap = document.createElement('div');
+    wrap.className = 'pw-wrap';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pw-toggle';
+    btn.setAttribute('aria-label', 'Show password');
+    btn.textContent = '👁';
+    btn.addEventListener('click', () => {
+      const reveal = inp.type === 'password';
+      inp.type = reveal ? 'text' : 'password';
+      btn.classList.toggle('on', reveal);
+      btn.setAttribute('aria-label', reveal ? 'Hide password' : 'Show password');
+    });
+    wrap.appendChild(btn);
+  });
+};
+
 /* ---------------- Boot: theme, floating toggle, PWA worker --------------- */
 (function boot() {
   Theme.init();
+  enhancePasswordInputs();
 
   // Inject a small floating dark-mode toggle so no page markup has to change.
   const fab = document.createElement('button');

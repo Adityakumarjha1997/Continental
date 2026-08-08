@@ -3,7 +3,7 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const money = (n) => '₹' + Number(n).toFixed(0);
-  const state = { token: null, restaurant: null, orders: [], staff: [], socket: null };
+  const state = { token: null, restaurant: null, orders: [], staff: [], menu: [], socket: null };
 
   /* ---------------------------- Login ----------------------------- */
   $('loginBtn').addEventListener('click', login);
@@ -35,17 +35,27 @@
     state.orders = data.orders;
     renderAll();
     connectSocket();
+    setInterval(refreshOrders, 8000); // safety-net if a socket event is missed
+  }
+
+  async function refreshOrders() {
+    try {
+      const data = await API.get('/owner/orders', state.token);
+      state.orders = data.orders;
+      renderAll();
+    } catch (_) {}
   }
 
   /* ---------------------------- Tabs ------------------------------ */
   const TABS = {
     Orders: ['ordersView', tabNoop],
+    Menu: ['menuView', loadMenu],
     Analytics: ['analyticsView', loadAnalytics],
     Staff: ['staffView', loadStaff],
     Settings: ['settingsView', loadSettings],
   };
   function tabNoop() {}
-  const tabBtns = { Orders: 'tabOrders', Analytics: 'tabAnalytics', Staff: 'tabStaff', Settings: 'tabSettings' };
+  const tabBtns = { Orders: 'tabOrders', Menu: 'tabMenu', Analytics: 'tabAnalytics', Staff: 'tabStaff', Settings: 'tabSettings' };
   Object.keys(tabBtns).forEach((name) =>
     $(tabBtns[name]).addEventListener('click', () => switchTab(name))
   );
@@ -258,6 +268,70 @@
       renderQRs();
     } catch (e) { $('qrError').textContent = e.message; }
   }
+
+  /* ----------------------------- Menu ----------------------------- */
+  async function loadMenu() {
+    try {
+      const data = await API.get('/owner/menu', state.token);
+      state.menu = data.menu;
+      renderMenu();
+    } catch (e) {
+      $('menuBody').innerHTML = '<tr><td colspan="5" class="banner danger">' + esc(e.message) + '</td></tr>';
+    }
+  }
+  function renderMenu() {
+    const body = $('menuBody');
+    if (!state.menu.length) {
+      body.innerHTML = '<tr><td colspan="5" class="muted">No items yet. Add your first dish above.</td></tr>';
+      return;
+    }
+    body.innerHTML = '';
+    state.menu.forEach((it) => {
+      const tr = document.createElement('tr');
+      const veg = it.isVeg !== false;
+      tr.innerHTML =
+        '<td><span class="veg-dot ' + (veg ? 'veg' : 'nonveg') + '"></span>' + esc(it.name) +
+        (it.spicy ? ' 🌶️' : '') + '</td>' +
+        '<td>₹' + it.price + '</td>' +
+        '<td>' + esc(it.category) + '</td>' +
+        '<td>' + (it.available ? 'Yes' : '<span class="muted">Sold out</span>') + '</td>' +
+        '<td></td>';
+      const actions = tr.querySelector('td:last-child');
+      actions.appendChild(mkMini(it.available ? 'Sold out' : 'Restock', async () => {
+        await API.patch('/owner/menu/' + it.id, { available: !it.available }, state.token);
+        loadMenu();
+      }));
+      actions.appendChild(mkMini('Delete', async () => {
+        if (!confirm('Delete ' + it.name + '?')) return;
+        await API.del('/owner/menu/' + it.id, state.token);
+        loadMenu();
+      }));
+      body.appendChild(tr);
+    });
+  }
+  function mkMini(text, onClick) {
+    const b = document.createElement('button');
+    b.className = 'ghost'; b.style.width = 'auto'; b.style.marginLeft = '6px'; b.style.fontSize = '12px';
+    b.textContent = text; b.onclick = onClick;
+    return b;
+  }
+  $('addItemBtn').addEventListener('click', async () => {
+    $('menuError').textContent = '';
+    try {
+      await API.post('/owner/menu', {
+        name: $('mName').value.trim(),
+        price: parseFloat($('mPrice').value),
+        category: $('mCategory').value.trim() || 'General',
+        imageUrl: $('mImg').value.trim(),
+        isVeg: $('mVeg').checked,
+        spicy: $('mSpicy').checked,
+        tags: $('mTags').value.trim(),
+      }, state.token);
+      ['mName', 'mPrice', 'mCategory', 'mImg', 'mTags'].forEach((id) => ($(id).value = ''));
+      $('mVeg').checked = true; $('mSpicy').checked = false;
+      loadMenu();
+    } catch (e) { $('menuError').textContent = e.message; }
+  });
 
   /* ---------------------------- Sound ----------------------------- */
   let audioCtx = null;

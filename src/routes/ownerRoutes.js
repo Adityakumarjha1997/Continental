@@ -5,12 +5,27 @@ const express = require('express');
 const router = express.Router();
 
 const restaurantRepo = require('../repositories/restaurantRepository');
+const menuRepo = require('../repositories/menuRepository');
 const orderRepo = require('../repositories/orderRepository');
 const staffRepo = require('../repositories/staffRepository');
 const orderService = require('../services/orderService');
 const authService = require('../services/authService');
 const { requireOwner } = require('../middleware/auth');
 const { pushOrder } = require('../realtime/socket');
+
+/** Normalise the optional "rich" menu fields (photo, veg, spicy, tags). */
+function normalizeMenuFields(body) {
+  const out = {};
+  if (body.imageUrl != null) out.imageUrl = String(body.imageUrl).trim();
+  if (body.isVeg != null) out.isVeg = body.isVeg !== false && body.isVeg !== 'false';
+  if (body.spicy != null) out.spicy = body.spicy === true || body.spicy === 'true';
+  if (body.tags != null) {
+    out.tags = Array.isArray(body.tags)
+      ? body.tags.map((t) => String(t).trim()).filter(Boolean)
+      : String(body.tags).split(',').map((t) => t.trim()).filter(Boolean);
+  }
+  return out;
+}
 
 /** Never leak the password hash of a staff account to the browser. */
 function sanitizeStaff(s) {
@@ -134,6 +149,67 @@ router.patch('/settings', requireOwner, async (req, res, next) => {
     const updated = await restaurantRepo.update(req.owner.code, patch);
     if (!updated) return res.status(404).json({ error: 'Restaurant not found' });
     res.json({ restaurant: orderService.publicRestaurant(updated) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/* -------------------------------- Menu --------------------------------- */
+/* Owners manage their own restaurant's menu (moved here from the admin panel). */
+
+router.get('/menu', requireOwner, (req, res) => {
+  res.json({ menu: menuRepo.byRestaurant(req.owner.code) });
+});
+
+router.post('/menu', requireOwner, async (req, res, next) => {
+  try {
+    const { name, description, price, category, available } = req.body || {};
+    if (!name || price == null || isNaN(Number(price))) {
+      return res.status(400).json({ error: 'Name and a valid price are required' });
+    }
+    const item = await menuRepo.create({
+      restaurantCode: req.owner.code,
+      name: String(name).trim(),
+      description: description || '',
+      price: Number(price),
+      category: (category && String(category).trim()) || 'General',
+      available: available !== false,
+      imageUrl: '',
+      isVeg: true,
+      spicy: false,
+      tags: [],
+      ...normalizeMenuFields(req.body),
+    });
+    res.status(201).json({ item });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.patch('/menu/:id', requireOwner, async (req, res, next) => {
+  try {
+    const existing = menuRepo.findById(req.params.id);
+    if (!existing || existing.restaurantCode !== req.owner.code) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    const patch = { ...req.body, ...normalizeMenuFields(req.body) };
+    if (patch.price != null) patch.price = Number(patch.price);
+    delete patch.restaurantCode;
+    const item = await menuRepo.update(req.params.id, patch);
+    res.json({ item });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.delete('/menu/:id', requireOwner, async (req, res, next) => {
+  try {
+    const existing = menuRepo.findById(req.params.id);
+    if (!existing || existing.restaurantCode !== req.owner.code) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    await menuRepo.remove(req.params.id);
+    res.json({ ok: true });
   } catch (e) {
     next(e);
   }

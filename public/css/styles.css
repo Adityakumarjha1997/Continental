@@ -598,3 +598,50 @@ html[data-theme="dark"] .timeline-step:not(:last-child)::before { background: #3
 html[data-theme="dark"] .modal { background: var(--card-solid); }
 html[data-theme="dark"] .shift-toggle,
 html[data-theme="dark"] .qr-card { background: var(--card-solid); border-color: var(--border-strong); }
+
+/* =====================================================================
+   UI/UX refinements
+   ===================================================================== */
+
+/* Quantity stepper: properly centred +/- symbols (were off-centre / mis-sized) */
+.round-btn {
+  width: 38px; height: 38px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 22px; line-height: 1; font-weight: 700;
+}
+.qty { gap: 14px; }
+.qty > span {
+  min-width: 22px; text-align: center;
+  font-weight: 800; font-size: 16px; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+
+/* Password show/hide eye toggle (injected by api.js on every password field) */
+.pw-wrap { position: relative; margin-bottom: 12px; }
+.pw-wrap input { margin-bottom: 0; padding-right: 46px; }
+.login-card .pw-wrap { margin-bottom: 0; }
+.pw-toggle {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 34px; height: 34px; border: none; background: transparent; cursor: pointer;
+  font-size: 16px; opacity: 0.45; border-radius: 8px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.pw-toggle:hover { opacity: 0.85; background: rgba(99, 102, 241, 0.08); }
+.pw-toggle.on { opacity: 1; }
+
+/* Owner "add menu item" flags row */
+.menu-flags { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+.menu-flags .chk {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 14px; color: var(--ink); font-weight: 600; white-space: nowrap;
+}
+.menu-flags .chk input { width: auto; margin: 0; }
+.menu-flags input#mTags { flex: 1; min-width: 200px; margin-bottom: 0; }
+
+/* Tabs: scroll horizontally instead of wrapping/squashing on small screens */
+.tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+.tabs::-webkit-scrollbar { height: 0; }
+.tab { white-space: nowrap; flex: 0 0 auto; }
+
+/* A touch more breathing room + clearer tap feedback on menu steppers */
+.menu-item { padding: 14px 16px; }
+.round-btn:active { transform: scale(0.88); }

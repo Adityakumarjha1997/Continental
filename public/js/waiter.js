@@ -44,6 +44,17 @@
     state.orders = data.orders;
     render();
     connectSocket();
+    // Safety-net: refresh from the server periodically in case a socket event
+    // is missed (e.g. flaky connection), so the board never goes stale.
+    setInterval(refresh, 7000);
+  }
+
+  async function refresh() {
+    try {
+      const data = await API.get('/waiter/orders', state.token);
+      state.orders = data.orders;
+      render();
+    } catch (_) {}
   }
 
   /* ------------------------- Shift toggle ------------------------- */
@@ -163,8 +174,8 @@
 
   async function act(id, method, path, body) {
     try {
-      await API.req(method, '/waiter/orders/' + id + '/' + path, body || null, state.token);
-      // socket order:update refreshes the board
+      const res = await API.req(method, '/waiter/orders/' + id + '/' + path, body || null, state.token);
+      if (res && res.order) { upsert(res.order); render(); } // instant feedback
     } catch (e) {
       alert(e.message);
     }
@@ -202,7 +213,8 @@
         );
         root.querySelector('#confirmPay').addEventListener('click', async () => {
           try {
-            await API.post('/waiter/orders/' + o.id + '/settle', { method }, state.token);
+            const res = await API.post('/waiter/orders/' + o.id + '/settle', { method }, state.token);
+            if (res && res.order) { upsert(res.order); render(); }
             closeModal();
           } catch (e) {
             alert(e.message);

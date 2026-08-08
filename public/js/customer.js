@@ -315,7 +315,21 @@
       .then((d) => { if (d.order) { renderTrackCard(d.order); renderTimeline(d.order.status); renderPayPanel(d.order); } })
       .catch(() => {});
   }
-  $('newOrderBtn').addEventListener('click', () => location.reload());
+  // Place another order: keep the session (same restaurant), clear the cart and
+  // go back to the menu instead of logging out.
+  $('newOrderBtn').addEventListener('click', () => {
+    if (state.trackSocket) { try { state.trackSocket.disconnect(); } catch (_) {} state.trackSocket = null; }
+    state.cart = {};
+    state.currentOrder = null;
+    state.orderToken = null;
+    $('payPanel').classList.add('hidden');
+    if (state.menu && state.menu.length) {
+      renderMenu();
+      show('menuScreen');
+    } else {
+      show('keypadScreen');
+    }
+  });
 
   /* --------------------- Order history + reorder ------------------ */
   function loadHistory() { try { return JSON.parse(localStorage.getItem(HKEY) || '[]'); } catch (_) { return []; } }

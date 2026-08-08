@@ -1,269 +1,406 @@
- 
-/* Customer flow: keypad -> menu -> (geofence) -> checkout -> pay -> success */ 
-(function () { 
-  const state = { 
-    code: '', 
-    restaurant: null, 
-    menu: [], 
-    cart: {}, // itemId -> qty 
-    location: null, 
-    withinRange: false, 
-  }; 
+/* Customer flow (dine-in): login -> keypad -> menu -> (geofence) -> pick table ->
+   place order -> live track -> pay at table (cash / UPI QR, waiter confirms).
+   Also: menu photos + veg/spicy/dietary tags, order history + reorder. */
+(function () {
+  const state = {
+    code: '',
+    restaurant: null,
+    menu: [],
+    cart: {}, // itemId -> qty
+    location: null,
+    withinRange: false,
+    orderToken: null,
+    currentOrder: null,
+    trackSocket: null,
+  };
 
-  const $ = (id) => document.getElementById(id); 
-  const money = (n) => '\u20B9' + Number(n).toFixed(0); 
+  const HKEY = 'avenza_orders'; // local order history (this device)
+  const PKEY = 'avenza_phone';
+  const $ = (id) => document.getElementById(id);
+  const money = (n) => '₹' + Number(n).toFixed(0);
 
-  /* ---------------------------- Login ----------------------------- */ 
-  // Dummy sign-in: Google just advances; any username + password works. 
-  $('googleBtn').addEventListener('click', () => show('keypadScreen')); 
-  $('loginBtn').addEventListener('click', () => { 
-    const u = $('loginUser').value.trim(); 
-    const p = $('loginPass').value.trim(); 
-    if (!u || !p) { 
-      $('loginError').textContent = 'Enter any username and password to continue'; 
-      return; 
-    } 
-    $('loginError').textContent = ''; 
-    show('keypadScreen'); 
-  }); 
+  /* ---------------------------- Login ----------------------------- */
+  $('googleBtn').addEventListener('click', () => show('keypadScreen'));
+  $('loginBtn').addEventListener('click', () => {
+    const u = $('loginUser').value.trim();
+    const p = $('loginPass').value.trim();
+    if (!u || !p) {
+      $('loginError').textContent = 'Enter any username and password to continue';
+      return;
+    }
+    $('loginError').textContent = '';
+    show('keypadScreen');
+  });
 
-  /* ---------------------------- Keypad ---------------------------- */ 
-  const codeDisplay = $('codeDisplay'); 
-  document.querySelectorAll('.key').forEach((key) => { 
-    key.addEventListener('click', () => onKey(key.dataset.k)); 
-  }); 
+  /* ---------------------------- Keypad ---------------------------- */
+  const codeDisplay = $('codeDisplay');
+  document.querySelectorAll('.key').forEach((key) => {
+    key.addEventListener('click', () => onKey(key.dataset.k));
+  });
 
-  function onKey(k) { 
-    $('keypadError').textContent = ''; 
-    if (k === 'del') { 
-      state.code = state.code.slice(0, -1); 
-    } else if (k === 'ok') { 
-      if (state.code.length === 3) return loadRestaurant(); 
-      return; 
-    } else if (/^\d$/.test(k) && state.code.length < 3) { 
-      state.code += k; 
-    } 
-    codeDisplay.textContent = state.code.replace(/./g, (c) => c); 
-    if (state.code.length === 3) loadRestaurant(); 
-  } 
+  function onKey(k) {
+    $('keypadError').textContent = '';
+    if (k === 'del') {
+      state.code = state.code.slice(0, -1);
+    } else if (k === 'ok') {
+      if (state.code.length === 3) return loadRestaurant();
+      return;
+    } else if (/^\d$/.test(k) && state.code.length < 3) {
+      state.code += k;
+    }
+    codeDisplay.textContent = state.code;
+    if (state.code.length === 3) loadRestaurant();
+  }
 
-  async function loadRestaurant() { 
-    try { 
-      const data = await API.get('/public/restaurants/' + state.code + '/menu'); 
-      state.restaurant = data.restaurant; 
-      state.menu = data.menu; 
-      $('restaurantNameTop').textContent = data.restaurant.name; 
-      $('hotelBox').classList.remove('hidden'); 
-      $('appTopbar').classList.add('menu-mode'); 
-      show('menuScreen'); 
-      renderMenu(); 
-      checkLocation(); 
-    } catch (e) { 
-      $('keypadError').textContent = e.message; 
-      state.code = ''; 
-      codeDisplay.textContent = ''; 
-    } 
-  } 
+  async function loadRestaurant(codeArg) {
+    const code = codeArg || state.code;
+    try {
+      const data = await API.get('/public/restaurants/' + code + '/menu');
+      state.code = code;
+      state.restaurant = data.restaurant;
+      state.menu = data.menu;
+      $('restaurantNameTop').textContent = data.restaurant.name;
+      $('hotelBox').classList.remove('hidden');
+      $('appTopbar').classList.add('menu-mode');
+      show('menuScreen');
+      renderMenu();
+      checkLocation();
+    } catch (e) {
+      $('keypadError').textContent = e.message;
+      state.code = '';
+      codeDisplay.textContent = '';
+    }
+  }
 
-  /* ---------------------------- Menu ------------------------------ */ 
-  function renderMenu() { 
-    const list = $('menuList'); 
-    const groups = {}; 
-    state.menu.forEach((m) => { 
-      (groups[m.category] = groups[m.category] || []).push(m); 
-    }); 
+  /* ---------------------------- Menu ------------------------------ */
+  function thumb(item) {
+    if (item.imageUrl) {
+      return '<div class="mi-thumb" style="background-image:url(\'' + esc(item.imageUrl) + '\')"></div>';
+    }
+    return '<div class="mi-thumb placeholder">' + esc((item.name || '?').charAt(0).toUpperCase()) + '</div>';
+  }
+  function badges(item) {
+    let html = '';
+    const veg = item.isVeg !== false;
+    html += '<span class="veg-dot ' + (veg ? 'veg' : 'nonveg') + '" title="' + (veg ? 'Veg' : 'Non-veg') + '"></span>';
+    if (item.spicy) html += '<span class="spicy" title="Spicy">🌶️</span>';
+    return html;
+  }
+  function tagPills(item) {
+    if (!Array.isArray(item.tags) || !item.tags.length) return '';
+    return '<div class="mi-tags">' + item.tags.map((t) => '<span class="tag">' + esc(t) + '</span>').join('') + '</div>';
+  }
 
-    list.innerHTML = ''; 
-    Object.keys(groups).forEach((cat) => { 
-      const title = document.createElement('div'); 
-      title.className = 'category-title'; 
-      title.textContent = cat; 
-      list.appendChild(title); 
+  function renderMenu() {
+    const list = $('menuList');
+    const groups = {};
+    state.menu.forEach((m) => { (groups[m.category] = groups[m.category] || []).push(m); });
+    list.innerHTML = '';
+    Object.keys(groups).forEach((cat) => {
+      const title = document.createElement('div');
+      title.className = 'category-title';
+      title.textContent = cat;
+      list.appendChild(title);
+      groups[cat].forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'menu-item' + (item.available ? '' : ' unavailable');
+        const qty = state.cart[item.id] || 0;
+        row.innerHTML =
+          '<div class="mi-main">' + thumb(item) +
+          '<div class="mi-info">' +
+          '<div class="name">' + badges(item) + esc(item.name) + (item.available ? '' : ' · sold out') + '</div>' +
+          tagPills(item) + '<div class="price">' + money(item.price) + '</div>' +
+          '</div></div>';
+        const controls = document.createElement('div');
+        if (item.available) {
+          controls.className = 'qty';
+          controls.innerHTML =
+            '<button class="round-btn" data-dec="' + item.id + '">−</button>' +
+            '<span>' + qty + '</span>' +
+            '<button class="round-btn brand" data-inc="' + item.id + '">+</button>';
+        }
+        row.appendChild(controls);
+        list.appendChild(row);
+      });
+    });
+    list.querySelectorAll('[data-inc]').forEach((b) => b.addEventListener('click', () => changeQty(b.dataset.inc, 1)));
+    list.querySelectorAll('[data-dec]').forEach((b) => b.addEventListener('click', () => changeQty(b.dataset.dec, -1)));
+    renderCartBar();
+  }
 
-      groups[cat].forEach((item) => { 
-        const row = document.createElement('div'); 
-        row.className = 'menu-item' + (item.available ? '' : ' unavailable'); 
-        const qty = state.cart[item.id] || 0; 
-        row.innerHTML = 
-          '<div><div class="name">' + esc(item.name) + '</div>' + 
-          '<div class="price">' + money(item.price) + 
-          (item.available ? '' : ' \u00B7 sold out') + '</div></div>'; 
+  function changeQty(id, delta) {
+    const next = (state.cart[id] || 0) + delta;
+    if (next <= 0) delete state.cart[id];
+    else state.cart[id] = next;
+    renderMenu();
+  }
+  function cartLines() {
+    return Object.keys(state.cart).map((id) => {
+      const m = state.menu.find((x) => x.id === id);
+      return { itemId: id, name: m.name, price: m.price, qty: state.cart[id] };
+    });
+  }
+  function cartTotal() { return cartLines().reduce((s, l) => s + l.price * l.qty, 0); }
+  function renderCartBar() {
+    const lines = cartLines();
+    const count = lines.reduce((s, l) => s + l.qty, 0);
+    const bar = $('cartBar');
+    if (count === 0) return bar.classList.add('hidden');
+    bar.classList.remove('hidden');
+    $('cartSummary').textContent = count + (count === 1 ? ' item' : ' items');
+    $('cartTotal').textContent = money(cartTotal());
+    bar.onclick = goCheckout;
+  }
 
-        const controls = document.createElement('div'); 
-        if (item.available) { 
-          controls.className = 'qty'; 
-          controls.innerHTML = 
-            '<button class="round-btn" data-dec="' + item.id + '">\u2212</button>' + 
-            '<span>' + qty + '</span>' + 
-            '<button class="round-btn brand" data-inc="' + item.id + '">+</button>'; 
-        } 
-        row.appendChild(controls); 
-        list.appendChild(row); 
-      }); 
-    }); 
+  /* ------------------------- Geolocation -------------------------- */
+  async function checkLocation() {
+    const banner = $('geoBanner');
+    try {
+      state.location = await getPosition();
+      const res = await API.post('/public/restaurants/' + state.code + '/geocheck', state.location);
+      state.withinRange = res.withinRange;
+      if (res.withinRange) {
+        banner.className = 'banner ok';
+        banner.textContent = 'You are at ' + state.restaurant.name + ' — go ahead and order.';
+      } else {
+        banner.className = 'banner danger';
+        banner.textContent = 'You are ~' + res.distanceMeters + 'm away. You must be within ' +
+          res.radiusMeters + 'm (i.e. inside the restaurant) to order.';
+      }
+    } catch (e) {
+      state.withinRange = false;
+      banner.className = 'banner danger';
+      banner.textContent = 'Location unavailable — ordering is blocked. Enable location and reload.';
+    }
+    renderCartBar();
+  }
 
-    list.querySelectorAll('[data-inc]').forEach((b) => 
-      b.addEventListener('click', () => changeQty(b.dataset.inc, 1)) 
-    ); 
-    list.querySelectorAll('[data-dec]').forEach((b) => 
-      b.addEventListener('click', () => changeQty(b.dataset.dec, -1)) 
-    ); 
-    renderCartBar(); 
-  } 
+  /* --------------------------- Checkout --------------------------- */
+  function populateTables() {
+    const sel = $('tableSelect');
+    const n = Number(state.restaurant && state.restaurant.tables) || 0;
+    const max = n > 0 ? n : 20;
+    $('tableHint').textContent = n > 0 ? '(1–' + n + ')' : '';
+    sel.innerHTML = '<option value="">Select table…</option>';
+    for (let i = 1; i <= max; i++) {
+      sel.innerHTML += '<option value="' + i + '">Table ' + i + '</option>';
+    }
+  }
 
-  function changeQty(id, delta) { 
-    const next = (state.cart[id] || 0) + delta; 
-    if (next <= 0) delete state.cart[id]; 
-    else state.cart[id] = next; 
-    renderMenu(); 
-  } 
+  function goCheckout() {
+    if (!state.withinRange) { alert('You must be inside the restaurant to order.'); return; }
+    if (cartLines().length === 0) return;
+    const box = $('checkoutItems');
+    box.innerHTML =
+      cartLines().map((l) => '<div class="menu-item"><span>' + esc(l.name) + ' × ' + l.qty +
+        '</span><strong>' + money(l.price * l.qty) + '</strong></div>').join('') +
+      '<div class="menu-item"><strong>Total</strong><strong>' + money(cartTotal()) + '</strong></div>';
+    populateTables();
+    const savedPhone = localStorage.getItem(PKEY);
+    if (savedPhone && !$('custPhone').value) $('custPhone').value = savedPhone;
+    show('checkoutScreen');
+  }
+  $('backToMenu').addEventListener('click', () => show('menuScreen'));
 
-  function cartLines() { 
-    return Object.keys(state.cart).map((id) => { 
-      const m = state.menu.find((x) => x.id === id); 
-      return { itemId: id, name: m.name, price: m.price, qty: state.cart[id] }; 
-    }); 
-  } 
+  $('payBtn').addEventListener('click', async () => {
+    $('checkoutError').textContent = '';
+    const name = $('custName').value.trim();
+    const phone = $('custPhone').value.trim();
+    const tableNumber = parseInt($('tableSelect').value, 10);
+    if (!tableNumber) return ($('checkoutError').textContent = 'Please select your table number');
+    if (!name) return ($('checkoutError').textContent = 'Please enter your name');
+    if (phone) localStorage.setItem(PKEY, phone);
 
-  function cartTotal() { 
-    return cartLines().reduce((s, l) => s + l.price * l.qty, 0); 
-  } 
+    $('payBtn').disabled = true;
+    try {
+      const data = await API.post('/public/orders', {
+        restaurantCode: state.code,
+        items: cartLines().map((l) => ({ itemId: l.itemId, qty: l.qty })),
+        customer: { name, phone },
+        location: state.location,
+        tableNumber,
+      });
+      startTracking(data.order, data.orderToken);
+    } catch (e) {
+      $('checkoutError').textContent = e.message;
+    } finally {
+      $('payBtn').disabled = false;
+    }
+  });
 
-  function renderCartBar() { 
-    const lines = cartLines(); 
-    const count = lines.reduce((s, l) => s + l.qty, 0); 
-    const bar = $('cartBar'); 
-    if (count === 0) return bar.classList.add('hidden'); 
-    bar.classList.remove('hidden'); 
-    $('cartSummary').textContent = count + (count === 1 ? ' item' : ' items'); 
-    $('cartTotal').textContent = money(cartTotal()); 
-    bar.onclick = goCheckout; 
-  } 
+  /* ----------------------- Live order tracking -------------------- */
+  const STEPS = ['placed', 'confirmed', 'preparing', 'ready', 'served', 'closed'];
+  const STEP_LABELS = {
+    placed: 'Order placed',
+    confirmed: 'Confirmed by waiter',
+    preparing: 'In the kitchen',
+    ready: 'Ready — being served',
+    served: 'Served',
+    closed: 'Paid · thank you!',
+  };
 
-  /* ------------------------- Geolocation -------------------------- */ 
-  async function checkLocation() { 
-    const banner = $('geoBanner'); 
-    try { 
-      state.location = await getPosition(); 
-      const res = await API.post('/public/restaurants/' + state.code + '/geocheck', state.location); 
-      state.withinRange = res.withinRange; 
-      if (res.withinRange) { 
-        banner.className = 'banner ok'; 
-        banner.textContent = 'You are near ' + state.restaurant.name + ' \u2014 you can order.'; 
-      } else { 
-        banner.className = 'banner danger'; 
-        banner.textContent = 
-          'You are ~' + res.distanceMeters + 'm away. You must be within ' + 
-          res.radiusMeters + 'm to order (browsing only).'; 
-      } 
-    } catch (e) { 
-      state.withinRange = false; 
-      banner.className = 'banner danger'; 
-      banner.textContent = 'Location unavailable \u2014 ordering is blocked. Enable location and reload.'; 
-    } 
-    renderCartBar(); 
-  } 
+  function renderTrackCard(o) {
+    $('trackCard').innerHTML =
+      '<div class="muted">Table</div><div><strong>' + esc(String(o.tableNumber != null ? o.tableNumber : '—')) + '</strong></div>' +
+      '<div class="muted" style="margin-top:8px">Order</div><div>#' + o.id.slice(0, 8) + '</div>' +
+      '<div class="muted" style="margin-top:8px">Total</div><div>' + money(o.total) + '</div>' +
+      (o.assignedWaiterName ? '<div class="muted" style="margin-top:8px">Your waiter</div><div>' + esc(o.assignedWaiterName) + '</div>' : '');
+  }
 
-  /* --------------------------- Checkout --------------------------- */ 
-  function goCheckout() { 
-    if (!state.withinRange) { 
-      alert('You must be within range of the restaurant to order.'); 
-      return; 
-    } 
-    if (cartLines().length === 0) return; 
-    const box = $('checkoutItems'); 
-    box.innerHTML = 
-      cartLines() 
-        .map((l) => '<div class="menu-item"><span>' + esc(l.name) + ' \u00D7 ' + l.qty + 
-          '</span><strong>' + money(l.price * l.qty) + '</strong></div>') 
-        .join('') + 
-      '<div class="menu-item"><strong>Total</strong><strong>' + money(cartTotal()) + '</strong></div>'; 
-    show('checkoutScreen'); 
-  } 
+  function renderTimeline(status) {
+    const tl = $('trackTimeline');
+    if (status === 'cancelled') { tl.innerHTML = '<div class="banner danger">This order was cancelled.</div>'; return; }
+    const idx = STEPS.indexOf(status);
+    tl.innerHTML = STEPS.map((s, i) => {
+      const cls = i < idx ? 'done' : i === idx ? 'active' : '';
+      return '<div class="timeline-step ' + cls + '"><span class="dot"></span><span class="lbl">' + STEP_LABELS[s] + '</span></div>';
+    }).join('');
+  }
 
-  $('backToMenu').addEventListener('click', () => show('menuScreen')); 
+  function renderPayPanel(o) {
+    const panel = $('payPanel');
+    if (o.paymentStatus === 'paid') {
+      panel.classList.remove('hidden');
+      panel.innerHTML = '<div class="banner ok">Paid' + (o.paymentMethod ? ' via ' + esc(o.paymentMethod) : '') + '. Thank you!</div>';
+      return;
+    }
+    if (o.status === 'ready' || o.status === 'served') {
+      const qrs = (state.restaurant && state.restaurant.paymentQRs) || [];
+      panel.classList.remove('hidden');
+      panel.innerHTML =
+        '<h4>Pay ' + money(o.total) + '</h4>' +
+        '<p class="muted" style="font-size:13px;margin-top:0">Pay by cash or scan a UPI QR below. Your waiter confirms and closes the bill.</p>' +
+        (qrs.length
+          ? '<div class="qr-list">' + qrs.map((q) =>
+              '<div class="qr-card">' +
+              (q.imageUrl ? '<img src="' + esc(q.imageUrl) + '" alt="QR" />' : '<div class="qr-ph">QR</div>') +
+              '<div><strong>' + esc(q.label) + '</strong>' +
+              (q.upiId ? '<div class="muted" style="font-size:12px">' + esc(q.upiId) + '</div>' : '') +
+              '</div></div>').join('') + '</div>'
+          : '<div class="banner warn">Ask your waiter for payment details.</div>');
+      return;
+    }
+    panel.classList.add('hidden');
+  }
 
-  $('payBtn').addEventListener('click', async () => { 
-    $('checkoutError').textContent = ''; 
-    const name = $('custName').value.trim(); 
-    const phone = $('custPhone').value.trim(); 
-    if (!name) return ($('checkoutError').textContent = 'Please enter your name'); 
+  function startTracking(order, token) {
+    state.currentOrder = order;
+    state.orderToken = token;
+    saveHistory(order, token);
+    renderTrackCard(order);
+    renderTimeline(order.status);
+    renderPayPanel(order);
+    show('trackScreen');
+    requestNotifyPermission();
 
-    $('payBtn').disabled = true; 
-    try { 
-      const data = await API.post('/public/orders', { 
-        restaurantCode: state.code, 
-        items: cartLines().map((l) => ({ itemId: l.itemId, qty: l.qty })), 
-        customer: { name, phone }, 
-        location: state.location, 
-      }); 
-      await pay(data, { name, phone }); 
-    } catch (e) { 
-      $('checkoutError').textContent = e.message; 
-      $('payBtn').disabled = false; 
-    } 
-  }); 
+    if (state.trackSocket) { try { state.trackSocket.disconnect(); } catch (_) {} state.trackSocket = null; }
+    try {
+      if (typeof io === 'function') {
+        const socket = io();
+        state.trackSocket = socket;
+        socket.on('connect', () => socket.emit('order:subscribe', { token }));
+        socket.on('order:update', (o) => {
+          if (!o || o.id !== order.id) return;
+          state.currentOrder = o;
+          renderTrackCard(o);
+          renderTimeline(o.status);
+          renderPayPanel(o);
+          updateHistoryStatus(o.id, o.status, o.paymentStatus);
+          notify('Order update', 'Your order is now: ' + (STEP_LABELS[o.status] || o.status));
+        });
+      }
+    } catch (_) {}
 
-  function pay(data, customer) { 
-    return new Promise((resolve) => { 
-      if (data.provider === 'razorpay' && data.keyId) { 
-        const rzp = new Razorpay({ 
-          key: data.keyId, 
-          order_id: data.paymentOrder.id, 
-          amount: data.paymentOrder.amount, 
-          currency: data.paymentOrder.currency, 
-          name: state.restaurant.name, 
-          description: 'Food order', 
-          prefill: { name: customer.name, contact: customer.phone }, 
-          theme: { color: '#6366f1' }, 
-          handler: async (resp) => { 
-            try { 
-              await API.post('/public/orders/' + data.order.id + '/confirm', resp); 
-              showSuccess(data.order); 
-            } catch (e) { 
-              $('checkoutError').textContent = e.message; 
-              $('payBtn').disabled = false; 
-            } 
-            resolve(); 
-          }, 
-          modal: { 
-            ondismiss: () => { 
-              $('checkoutError').textContent = 'Payment cancelled.'; 
-              $('payBtn').disabled = false; 
-              resolve(); 
-            }, 
-          }, 
-        }); 
-        rzp.open(); 
-      } else { 
-        // Free mock mode -- confirm immediately (no real payment window) 
-        API.post('/public/orders/' + data.order.id + '/confirm', {}) 
-          .then(() => showSuccess(data.order)) 
-          .catch((e) => { 
-            $('checkoutError').textContent = e.message; 
-            $('payBtn').disabled = false; 
-          }) 
-          .finally(resolve); 
-      } 
-    }); 
-  } 
+    API.get('/public/orders/' + order.id + '?token=' + encodeURIComponent(token))
+      .then((d) => { if (d.order) { renderTrackCard(d.order); renderTimeline(d.order.status); renderPayPanel(d.order); } })
+      .catch(() => {});
+  }
+  $('newOrderBtn').addEventListener('click', () => location.reload());
 
-  function showSuccess(order) { 
-    $('successDetail').innerHTML = 
-      '<div class="muted">Order ID</div><div>' + order.id.slice(0, 8) + '</div>' + 
-      '<div class="muted" style="margin-top:8px">Total</div><div>' + money(order.total) + '</div>'; 
-    show('successScreen'); 
-  } 
+  /* --------------------- Order history + reorder ------------------ */
+  function loadHistory() { try { return JSON.parse(localStorage.getItem(HKEY) || '[]'); } catch (_) { return []; } }
+  function saveHistory(o, token) {
+    const list = loadHistory().filter((x) => x.id !== o.id);
+    list.unshift({
+      id: o.id, token: token,
+      restaurantCode: o.restaurantCode,
+      restaurantName: state.restaurant ? state.restaurant.name : '',
+      tableNumber: o.tableNumber,
+      items: o.items, total: o.total,
+      createdAt: o.createdAt || new Date().toISOString(),
+      status: o.status, paymentStatus: o.paymentStatus,
+    });
+    localStorage.setItem(HKEY, JSON.stringify(list.slice(0, 20)));
+  }
+  function updateHistoryStatus(id, status, paymentStatus) {
+    const list = loadHistory().map((x) =>
+      x.id === id ? Object.assign({}, x, { status, paymentStatus: paymentStatus || x.paymentStatus }) : x
+    );
+    localStorage.setItem(HKEY, JSON.stringify(list));
+  }
 
-  /* --------------------------- Helpers ---------------------------- */ 
-  function show(id) { 
-    ['loginScreen', 'keypadScreen', 'menuScreen', 'checkoutScreen', 'successScreen'].forEach((s) => 
-      $(s).classList.toggle('hidden', s !== id) 
-    ); 
-  } 
-  function esc(s) { 
-    return String(s).replace(/[&<>"]/g, (c) => 
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]) 
-    ); 
-  } 
-})(); 
+  $('myOrdersBtn').addEventListener('click', () => { renderMyOrders(); show('ordersScreen'); });
+  $('ordersBackBtn').addEventListener('click', () => show('menuScreen'));
+
+  function renderMyOrders() {
+    const list = loadHistory();
+    const wrap = $('ordersList');
+    if (!list.length) { wrap.innerHTML = '<div class="banner warn">No past orders on this device yet.</div>'; return; }
+    wrap.innerHTML = '';
+    list.forEach((o) => {
+      const el = document.createElement('div');
+      el.className = 'card';
+      const items = o.items.map((i) => i.qty + ' × ' + esc(i.name)).join(', ');
+      el.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<strong>' + esc(o.restaurantName || 'Code ' + o.restaurantCode) + '</strong>' +
+        '<span class="pill">' + esc(o.status || '') + '</span></div>' +
+        '<div class="muted" style="font-size:12px;margin:6px 0">' + timeAgo(o.createdAt) + ' · ' + money(o.total) +
+        (o.tableNumber ? ' · Table ' + esc(String(o.tableNumber)) : '') + '</div>' +
+        '<div style="font-size:13px">' + items + '</div>' +
+        '<div class="status-row"></div>';
+      const row = el.querySelector('.status-row');
+      const t = document.createElement('button');
+      t.className = 'ghost'; t.textContent = 'Track';
+      t.onclick = () => {
+        state.restaurant = state.restaurant || { name: o.restaurantName, code: o.restaurantCode, paymentQRs: [] };
+        startTracking(o, o.token);
+      };
+      const r = document.createElement('button');
+      r.className = 'primary'; r.style.width = 'auto'; r.textContent = 'Reorder';
+      r.onclick = () => reorder(o);
+      row.appendChild(t); row.appendChild(r);
+      wrap.appendChild(el);
+    });
+  }
+
+  async function reorder(o) {
+    if (o.restaurantCode !== state.code || !state.menu.length) await loadRestaurant(o.restaurantCode);
+    else show('menuScreen');
+    const cart = {};
+    (o.items || []).forEach((it) => {
+      const m = state.menu.find((x) => x.id === it.itemId && x.available);
+      if (m) cart[it.itemId] = (cart[it.itemId] || 0) + it.qty;
+    });
+    state.cart = cart;
+    renderMenu();
+    if (Object.keys(cart).length === 0) alert('Those items are no longer available at this restaurant.');
+  }
+
+  /* --------------------------- Helpers ---------------------------- */
+  function show(id) {
+    ['loginScreen', 'keypadScreen', 'menuScreen', 'checkoutScreen', 'trackScreen', 'ordersScreen'].forEach((s) =>
+      $(s).classList.toggle('hidden', s !== id)
+    );
+  }
+  function timeAgo(iso) {
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return s + 's ago';
+    if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    return Math.floor(s / 86400) + 'd ago';
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+})();

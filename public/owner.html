@@ -51,6 +51,7 @@
 
       <div class="tabs">
         <button class="tab active" id="tabOrders">Live orders</button>
+        <button class="tab" id="tabMenu">Menu</button>
         <button class="tab" id="tabAnalytics">Analytics</button>
         <button class="tab" id="tabStaff">Staff</button>
         <button class="tab" id="tabSettings">Settings</button>
@@ -60,6 +61,34 @@
       <div id="ordersView">
         <div id="emptyState" class="banner warn">Waiting for orders…</div>
         <div class="orders-grid" id="ordersGrid"></div>
+      </div>
+
+      <!-- Menu -->
+      <div id="menuView" class="hidden">
+        <div class="card">
+          <h4>Add menu item</h4>
+          <div class="grid-2">
+            <div><label>Item name</label><input id="mName" placeholder="e.g. Paneer Tikka" /></div>
+            <div><label>Price (₹)</label><input id="mPrice" type="number" min="0" inputmode="numeric" placeholder="e.g. 220" /></div>
+          </div>
+          <div class="grid-2">
+            <div><label>Category</label><input id="mCategory" placeholder="e.g. Starters" /></div>
+            <div><label>Photo URL (optional)</label><input id="mImg" placeholder="https://…/dish.jpg" /></div>
+          </div>
+          <div class="menu-flags">
+            <label class="chk"><input type="checkbox" id="mVeg" checked /> Veg</label>
+            <label class="chk"><input type="checkbox" id="mSpicy" /> Spicy</label>
+            <input id="mTags" placeholder="Tags, comma separated (e.g. Bestseller, Jain)" />
+          </div>
+          <div class="error" id="menuError"></div>
+          <button class="primary" id="addItemBtn">Add item</button>
+        </div>
+        <div class="card">
+          <table>
+            <thead><tr><th>Item</th><th>Price</th><th>Category</th><th>Available</th><th></th></tr></thead>
+            <tbody id="menuBody"></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Analytics -->
