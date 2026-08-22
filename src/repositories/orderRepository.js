@@ -24,6 +24,17 @@ function byStatuses(code, statuses) {
   return byRestaurant(code).filter((o) => set.has(o.status));
 }
 
+/** Table numbers with a live (not closed/cancelled) order — i.e. occupied. */
+function activeTableNumbers(code) {
+  const set = new Set();
+  byRestaurant(code).forEach((o) => {
+    if (o.status !== 'closed' && o.status !== 'cancelled' && o.tableNumber != null) {
+      set.add(Number(o.tableNumber));
+    }
+  });
+  return set;
+}
+
 /**
  * Orders relevant to one waiter: everything assigned to them, plus the
  * unassigned pool (no waiter on shift when the order was placed) so any waiter
@@ -65,6 +76,7 @@ module.exports = {
   byRestaurant,
   byRestaurantAndPhone,
   byStatuses,
+  activeTableNumbers,
   forWaiter,
   findById,
   create,

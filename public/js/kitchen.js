@@ -83,9 +83,28 @@
       .filter((o) => IN_KITCHEN.includes(o.status))
       .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     $('emptyState').classList.toggle('hidden', list.length > 0);
+    renderSummary(list);
     const grid = $('ordersGrid');
     grid.innerHTML = '';
     list.forEach((o) => grid.appendChild(card(o)));
+  }
+
+  // Big-picture aggregate: total quantity of each dish still to cook. Recomputed
+  // every render, so counts drop as orders are marked ready.
+  function renderSummary(list) {
+    const totals = {};
+    list.forEach((o) => (o.items || []).forEach((it) => {
+      totals[it.name] = (totals[it.name] || 0) + it.qty;
+    }));
+    const names = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
+    const el = $('kitchenSummary');
+    if (!names.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    el.classList.remove('hidden');
+    el.innerHTML =
+      '<div class="ks-title">Big picture — to cook</div>' +
+      '<div class="ks-chips">' +
+      names.map((n) => '<span class="ks-chip"><b>' + totals[n] + '</b> ' + esc(n) + '</span>').join('') +
+      '</div>';
   }
 
   function card(o) {

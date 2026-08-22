@@ -3,7 +3,7 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const money = (n) => '₹' + Number(n).toFixed(0);
-  const state = { token: null, staff: null, restaurant: null, orders: [], socket: null };
+  const state = { token: null, staff: null, restaurant: null, orders: [], menu: [], socket: null };
 
   const LANES = {
     new: ['placed'],
@@ -42,11 +42,31 @@
     $('rName').textContent = state.restaurant ? state.restaurant.name : '';
     const data = await API.get('/waiter/orders', state.token);
     state.orders = data.orders;
+    try { const m = await API.get('/waiter/menu', state.token); state.menu = m.menu || []; } catch (_) {}
     render();
     connectSocket();
     // Safety-net: refresh from the server periodically in case a socket event
     // is missed (e.g. flaky connection), so the board never goes stale.
     setInterval(refresh, 7000);
+    startIdleWatch();
+  }
+
+  /* -------- Auto-logout after 30 min of inactivity (clocks off) -------- */
+  let idleTimer = null;
+  function startIdleWatch() {
+    const reset = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(autoLogout, 30 * 60 * 1000);
+    };
+    ['click', 'keydown', 'touchstart', 'mousemove'].forEach((ev) =>
+      document.addEventListener(ev, reset, { passive: true })
+    );
+    reset();
+  }
+  async function autoLogout() {
+    try { await API.patch('/waiter/shift', { onShift: false }, state.token); } catch (_) {}
+    alert('You were logged out after 30 minutes of inactivity.');
+    location.reload();
   }
 
   async function refresh() {
@@ -164,12 +184,69 @@
     } else if (lane === 'served') {
       row.appendChild(btn('Settle & close', 'primary', () => openSettle(o)));
     }
+    if (['new', 'kitchen', 'ready'].includes(lane)) {
+      row.appendChild(btn('Edit / add items', 'ghost', () => openEdit(o)));
+    }
     if (isActive(o) && o.status !== 'served') {
       row.appendChild(btn('Cancel', 'ghost', () => {
         if (confirm('Cancel this order?')) act(o.id, 'PATCH', 'cancel');
       }));
     }
     return el;
+  }
+
+  /* --------------------- Edit / add items to an order ------------------- */
+  function openEdit(o) {
+    const cart = {};
+    (o.items || []).forEach((it) => { cart[it.itemId] = it.qty; });
+    openModal(
+      'Edit — Table ' + o.tableNumber,
+      '<div id="editList" class="edit-list"></div>' +
+        '<div class="edit-total">Total: <strong id="editTotal">₹0</strong></div>' +
+        '<button class="primary" id="saveItems">Save changes</button>',
+      (root) => {
+        const listEl = root.querySelector('#editList');
+        function draw() {
+          listEl.innerHTML = '';
+          state.menu
+            .filter((m) => m.available || cart[m.id])
+            .forEach((m) => {
+              const qty = cart[m.id] || 0;
+              const rowEl = document.createElement('div');
+              rowEl.className = 'edit-row';
+              rowEl.innerHTML =
+                '<span>' + esc(m.name) + ' <span class="muted">' + money(m.price) + '</span></span>' +
+                '<div class="qty"><button class="round-btn" data-dec="' + m.id + '">−</button>' +
+                '<span>' + qty + '</span><button class="round-btn brand" data-inc="' + m.id + '">+</button></div>';
+              listEl.appendChild(rowEl);
+            });
+          listEl.querySelectorAll('[data-inc]').forEach((b) =>
+            (b.onclick = () => { cart[b.dataset.inc] = (cart[b.dataset.inc] || 0) + 1; draw(); }));
+          listEl.querySelectorAll('[data-dec]').forEach((b) =>
+            (b.onclick = () => {
+              const v = (cart[b.dataset.dec] || 0) - 1;
+              if (v <= 0) delete cart[b.dataset.dec]; else cart[b.dataset.dec] = v;
+              draw();
+            }));
+          let total = 0;
+          Object.keys(cart).forEach((id) => {
+            const m = state.menu.find((x) => x.id === id);
+            if (m) total += m.price * cart[id];
+          });
+          root.querySelector('#editTotal').textContent = money(total);
+        }
+        draw();
+        root.querySelector('#saveItems').onclick = async () => {
+          const items = Object.keys(cart).map((id) => ({ itemId: id, qty: cart[id] }));
+          if (!items.length) return alert('An order cannot be empty — cancel it instead.');
+          try {
+            const res = await API.patch('/waiter/orders/' + o.id + '/items', { items }, state.token);
+            if (res && res.order) { upsert(res.order); render(); }
+            closeModal();
+          } catch (e) { alert(e.message); }
+        };
+      }
+    );
   }
 
   async function act(id, method, path, body) {

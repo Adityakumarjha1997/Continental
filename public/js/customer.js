@@ -254,14 +254,21 @@
   }
 
   /* --------------------------- Checkout --------------------------- */
-  function populateTables() {
+  async function populateTables() {
     const sel = $('tableSelect');
     const n = Number(state.restaurant && state.restaurant.tables) || 0;
     const max = n > 0 ? n : 20;
     $('tableHint').textContent = n > 0 ? '(1–' + n + ')' : '';
+    let occupied = [];
+    try {
+      const d = await API.get('/public/restaurants/' + state.code + '/tables');
+      occupied = d.occupied || [];
+    } catch (_) {}
     sel.innerHTML = '<option value="">Select table…</option>';
     for (let i = 1; i <= max; i++) {
-      sel.innerHTML += '<option value="' + i + '">Table ' + i + '</option>';
+      const taken = occupied.indexOf(i) !== -1;
+      sel.innerHTML += '<option value="' + i + '"' + (taken ? ' disabled' : '') + '>Table ' + i +
+        (taken ? ' — occupied' : '') + '</option>';
     }
   }
 
@@ -336,6 +343,10 @@
     }).join('');
   }
 
+  function upiLink(scheme, upiId, name, amount, note) {
+    return scheme + 'pa=' + encodeURIComponent(upiId) + '&pn=' + encodeURIComponent(name || 'Restaurant') +
+      '&am=' + Number(amount) + '&cu=INR&tn=' + encodeURIComponent(note);
+  }
   function renderPayPanel(o) {
     const panel = $('payPanel');
     if (o.paymentStatus === 'paid') {
@@ -344,19 +355,35 @@
       return;
     }
     if (o.status === 'ready' || o.status === 'served') {
-      const qrs = (state.restaurant && state.restaurant.paymentQRs) || [];
+      const r = state.restaurant || {};
+      const qrs = r.paymentQRs || [];
+      const upiId = r.upiId || (qrs.find((q) => q.upiId) || {}).upiId || '';
+      const note = 'Table ' + o.tableNumber + ' #' + o.id.slice(0, 6);
+
+      const appBtns = upiId
+        ? '<div class="pay-apps">' +
+          '<a class="pay-app gpay" href="' + esc(upiLink('tez://upi/pay?', upiId, r.name, o.total, note)) + '">Pay with GPay</a>' +
+          '<a class="pay-app phonepe" href="' + esc(upiLink('phonepe://pay?', upiId, r.name, o.total, note)) + '">Pay with PhonePe</a>' +
+          '<a class="pay-app anyupi" href="' + esc(upiLink('upi://pay?', upiId, r.name, o.total, note)) + '">Any UPI app</a>' +
+          '</div>' +
+          '<div class="muted" style="font-size:11px;margin-top:4px">Paying to ' + esc(upiId) + ' · opens your UPI app on a phone</div>'
+        : '';
+
+      const qrList = qrs.length
+        ? '<div class="qr-list">' + qrs.map((q) =>
+            '<div class="qr-card">' +
+            (q.imageUrl ? '<img src="' + esc(q.imageUrl) + '" alt="QR" />' : '<div class="qr-ph">QR</div>') +
+            '<div><strong>' + esc(q.label) + '</strong>' +
+            (q.upiId ? '<div class="muted" style="font-size:12px">' + esc(q.upiId) + '</div>' : '') +
+            '</div></div>').join('') + '</div>'
+        : '';
+
       panel.classList.remove('hidden');
       panel.innerHTML =
         '<h4>Pay ' + money(o.total) + '</h4>' +
-        '<p class="muted" style="font-size:13px;margin-top:0">Pay by cash or scan a UPI QR below. Your waiter confirms and closes the bill.</p>' +
-        (qrs.length
-          ? '<div class="qr-list">' + qrs.map((q) =>
-              '<div class="qr-card">' +
-              (q.imageUrl ? '<img src="' + esc(q.imageUrl) + '" alt="QR" />' : '<div class="qr-ph">QR</div>') +
-              '<div><strong>' + esc(q.label) + '</strong>' +
-              (q.upiId ? '<div class="muted" style="font-size:12px">' + esc(q.upiId) + '</div>' : '') +
-              '</div></div>').join('') + '</div>'
-          : '<div class="banner warn">Ask your waiter for payment details.</div>');
+        '<p class="muted" style="font-size:13px;margin-top:0">Pay via a UPI app or scan a QR — or pay cash. Your waiter confirms and closes the bill.</p>' +
+        appBtns + qrList +
+        (!appBtns && !qrList ? '<div class="banner warn">Ask your waiter for payment details.</div>' : '');
       return;
     }
     panel.classList.add('hidden');

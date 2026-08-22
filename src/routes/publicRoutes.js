@@ -32,6 +32,16 @@ router.get('/restaurants/:code/menu', (req, res) => {
   });
 });
 
+/** Which table numbers are free vs occupied, so the picker can grey out taken ones. */
+router.get('/restaurants/:code/tables', (req, res) => {
+  const r = restaurantRepo.findByCode(req.params.code);
+  if (!r) return res.status(404).json({ error: 'Not found' });
+  res.json({
+    tables: Number(r.tables) || 0,
+    occupied: Array.from(orderRepo.activeTableNumbers(req.params.code)),
+  });
+});
+
 /** Distance check so the UI can enable/disable the order button live. */
 router.post('/restaurants/:code/geocheck', (req, res) => {
   const r = restaurantRepo.findByCode(req.params.code);

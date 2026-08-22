@@ -9,10 +9,11 @@ const rateLimit = require('express-rate-limit');
 const config = require('./src/config');
 const routes = require('./src/routes');
 const { notFound, errorHandler } = require('./src/middleware/errorHandler');
-const { initSocket } = require('./src/realtime/socket');
+const { initSocket, pushOrder } = require('./src/realtime/socket');
 const store = require('./src/data/store');
 const { ensureSeed } = require('./src/data/seed');
 const payment = require('./src/services/payment');
+const orderService = require('./src/services/orderService');
 
 const app = express();
 const server = http.createServer(app);
@@ -58,6 +59,27 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(errorHandler);
 
+/**
+ * Housekeeping: auto-cancel orders that were placed but never confirmed by a
+ * waiter within 2 hours. Runs every 5 minutes.
+ */
+const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+async function sweepStaleOrders() {
+  try {
+    const now = Date.now();
+    const stale = (store.read().orders || []).filter(
+      (o) => o.status === 'placed' && now - new Date(o.createdAt).getTime() > TWO_HOURS_MS
+    );
+    for (const o of stale) {
+      const updated = await orderService.updateStatus(o.id, 'cancelled');
+      if (updated) pushOrder(io, updated);
+    }
+    if (stale.length) console.log(`Auto-cancelled ${stale.length} unconfirmed order(s) older than 2h`);
+  } catch (e) {
+    console.error('Stale-order sweep failed:', e.message);
+  }
+}
+
 // Connect to the data backend (MongoDB if MONGODB_URI is set, else JSON file),
 // seed demo data on first run, then start listening.
 store
@@ -74,6 +96,7 @@ store
       console.log(`  Payment mode : ${payment.name}`);
       console.log('  --------------------------------------------------\n');
     });
+    setInterval(sweepStaleOrders, 5 * 60 * 1000);
   })
   .catch((err) => {
     console.error('Failed to start server:', err);

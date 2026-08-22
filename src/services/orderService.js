@@ -108,10 +108,42 @@ function staffOrderView(o) {
 }
 
 /**
+ * Rebuild a cart from trusted server data: verify each item belongs to the
+ * restaurant and is available, and compute the total from DB prices (never the
+ * client's numbers). Shared by order creation and waiter order editing.
+ */
+function priceItems(restaurantCode, items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw httpError('The order is empty', 400);
+  }
+  const lineItems = [];
+  let total = 0;
+  for (const it of items) {
+    const menuItem = menuRepo.findById(it.itemId);
+    if (!menuItem || menuItem.restaurantCode !== String(restaurantCode)) {
+      throw httpError('The order contains an invalid item', 400);
+    }
+    if (!menuItem.available) {
+      throw httpError(`${menuItem.name} is currently unavailable`, 400);
+    }
+    const qty = Math.max(1, parseInt(it.qty, 10) || 1);
+    total += menuItem.price * qty;
+    lineItems.push({ itemId: menuItem.id, name: menuItem.name, price: menuItem.price, qty });
+  }
+  return { lineItems, total };
+}
+
+/** Replace an order's items and re-price it (waiter edit / add-on-top). */
+async function setOrderItems(orderId, restaurantCode, items) {
+  const { lineItems, total } = priceItems(restaurantCode, items);
+  return orderRepo.update(orderId, { items: lineItems, total });
+}
+
+/**
  * Create a dine-in order. Enforces the rules the browser must never be trusted
  * to do itself:
  *   1. The customer must be within the restaurant's geofence (presence check).
- *   2. A valid table number must be given.
+ *   2. A valid, unoccupied table number must be given (one live order/table).
  *   3. Prices/totals are computed from the DB, not from the client payload.
  * Then it auto-assigns the order to an on-shift waiter (round-robin).
  */
@@ -129,31 +161,18 @@ async function createOrder({ restaurantCode, items, customer, location, tableNum
     throw httpError(`You must be within ${radius}m of the restaurant to order`, 403);
   }
 
-  // 2. Table number
+  // 2. Table number — must be valid and not already occupied by a live order.
   const tableCount = Number(restaurant.tables) || 0;
   const table = parseInt(tableNumber, 10);
   if (!table || table < 1 || (tableCount && table > tableCount)) {
     throw httpError('Please select a valid table number', 400);
   }
+  if (orderRepo.activeTableNumbers(String(restaurantCode)).has(table)) {
+    throw httpError(`Table ${table} is currently occupied. Please pick another table or ask staff.`, 409);
+  }
 
-  // 3. Rebuild the cart from trusted server data
-  if (!Array.isArray(items) || items.length === 0) {
-    throw httpError('Your cart is empty', 400);
-  }
-  const lineItems = [];
-  let total = 0;
-  for (const it of items) {
-    const menuItem = menuRepo.findById(it.itemId);
-    if (!menuItem || menuItem.restaurantCode !== String(restaurantCode)) {
-      throw httpError('Your cart contains an invalid item', 400);
-    }
-    if (!menuItem.available) {
-      throw httpError(`${menuItem.name} is currently unavailable`, 400);
-    }
-    const qty = Math.max(1, parseInt(it.qty, 10) || 1);
-    total += menuItem.price * qty;
-    lineItems.push({ itemId: menuItem.id, name: menuItem.name, price: menuItem.price, qty });
-  }
+  // 3. Rebuild the cart from trusted server data (prices from the DB).
+  const { lineItems, total } = priceItems(restaurantCode, items);
 
   // Round-robin assignment to an on-shift waiter (null => unassigned pool).
   const waiter = assignment.nextWaiter(String(restaurantCode));
@@ -250,6 +269,7 @@ function analytics(code) {
 
 module.exports = {
   createOrder,
+  setOrderItems,
   updateStatus,
   settleOrder,
   getOrder,

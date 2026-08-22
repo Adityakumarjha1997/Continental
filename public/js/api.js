@@ -97,6 +97,7 @@ window.Icons = {
   home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.4 12 4l9 7.4"/><path d="M5.5 10v9.5h13V10"/></svg>',
   orders: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6"/><path d="M9 12h6"/></svg>',
   cart: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h2l2.2 10.5h9.1L20 8H7"/><circle cx="10" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/></svg>',
+  theme: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.5A8.5 8.5 0 1 1 11.5 3a6.5 6.5 0 0 0 9.5 9.5z"/></svg>',
 };
 window.applyIcons = function (root) {
   (root || document).querySelectorAll('[data-icon]').forEach((el) => {
@@ -171,15 +172,21 @@ window.enhancePasswordInputs = function () {
   enhancePasswordInputs();
   applyIcons();
 
-  // Inject a small floating dark-mode toggle so no page markup has to change.
-  const fab = document.createElement('button');
-  fab.id = 'themeFab';
-  fab.className = 'theme-fab';
-  fab.type = 'button';
-  fab.setAttribute('aria-label', 'Toggle dark mode');
-  fab.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
-  fab.addEventListener('click', () => Theme.toggle());
-  document.body.appendChild(fab);
+  // If a page provides an in-nav theme button (#navTheme), wire that and skip the
+  // floating toggle; otherwise inject the small floating dark-mode toggle.
+  const navTheme = document.getElementById('navTheme');
+  if (navTheme) {
+    navTheme.addEventListener('click', () => Theme.toggle());
+  } else {
+    const fab = document.createElement('button');
+    fab.id = 'themeFab';
+    fab.className = 'theme-fab';
+    fab.type = 'button';
+    fab.setAttribute('aria-label', 'Toggle dark mode');
+    fab.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+    fab.addEventListener('click', () => Theme.toggle());
+    document.body.appendChild(fab);
+  }
 
   // Register the service worker (installable + offline shell). Secure-context
   // only; silently skipped on unsupported/insecure origins.

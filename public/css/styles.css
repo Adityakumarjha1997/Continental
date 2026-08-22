@@ -747,5 +747,41 @@ html[data-theme="dark"] .grid-tile { background: var(--card-solid); border-color
 input[type="file"] { padding: 9px 12px; background: #fff; }
 html[data-theme="dark"] input[type="file"] { background: #1b1836; color: var(--text); }
 html[data-theme="dark"] .ic { background: rgba(30, 27, 58, 0.72); border-color: rgba(139, 92, 246, 0.42); }
+
+/* UPI app pay buttons (customer settlement panel) */
+.pay-apps { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.pay-app {
+  display: block; text-align: center; text-decoration: none;
+  padding: 13px; border-radius: var(--r-md); font-weight: 800; color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.pay-app.gpay { background: #1a73e8; }
+.pay-app.phonepe { background: #5f259f; }
+.pay-app.anyupi { background: var(--grad-2); }
+.pay-app:active { transform: translateY(1px); }
+
+/* Waiter edit-items modal */
+.edit-list { max-height: 52vh; overflow: auto; margin-bottom: 10px; }
+.edit-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; gap: 10px;
+}
+.edit-total { text-align: right; margin-bottom: 12px; font-size: 15px; color: var(--ink); }
+
+/* Kitchen big-picture aggregate */
+.kitchen-summary {
+  background: var(--card-solid); border: 1.5px solid var(--border-strong);
+  border-radius: var(--r-lg); padding: 14px 16px; margin-bottom: 14px; box-shadow: var(--shadow-sm);
+}
+.ks-title {
+  font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--brand-2); margin-bottom: 8px;
+}
+.ks-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ks-chip {
+  background: var(--grad-soft); color: var(--brand-dark); font-weight: 700; font-size: 14px;
+  padding: 6px 12px; border-radius: 999px;
+}
+.ks-chip b { font-size: 16px; margin-right: 3px; }
 html[data-theme="dark"] .geo-chip.ok { background: rgba(22, 163, 74, 0.15); }
 html[data-theme="dark"] .geo-chip.warn { background: rgba(220, 38, 38, 0.15); }

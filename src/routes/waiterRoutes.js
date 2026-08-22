@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 
 const restaurantRepo = require('../repositories/restaurantRepository');
+const menuRepo = require('../repositories/menuRepository');
 const orderRepo = require('../repositories/orderRepository');
 const staffRepo = require('../repositories/staffRepository');
 const orderService = require('../services/orderService');
@@ -51,6 +52,32 @@ router.get('/orders', requireWaiter, (req, res) => {
     .forWaiter(req.waiter.code, req.waiter.sid)
     .map(orderService.staffOrderView);
   res.json({ orders });
+});
+
+/** The menu, so the waiter can edit / add items to an order. */
+router.get('/menu', requireWaiter, (req, res) => {
+  res.json({ menu: menuRepo.byRestaurant(req.waiter.code) });
+});
+
+/**
+ * Replace an order's items (edit / add-on-top at the customer's request). Allowed
+ * until the food is served; totals are always recomputed server-side.
+ */
+router.patch('/orders/:id/items', requireWaiter, async (req, res, next) => {
+  try {
+    const order = orderRepo.findById(req.params.id);
+    if (!order || order.restaurantCode !== req.waiter.code) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    if (['served', 'closed', 'cancelled'].includes(order.status)) {
+      return res.status(409).json({ error: 'This order can no longer be edited' });
+    }
+    const updated = await orderService.setOrderItems(order.id, req.waiter.code, req.body.items);
+    pushOrder(req.app.get('io'), updated);
+    res.json({ order: orderService.staffOrderView(updated) });
+  } catch (e) {
+    next(e);
+  }
 });
 
 /** Load + ownership guard shared by the transition handlers below. */
