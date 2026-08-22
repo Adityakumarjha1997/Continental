@@ -1,13 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#6366f1"/>
       <stop offset="0.5" stop-color="#8b5cf6"/>
       <stop offset="1" stop-color="#ec4899"/>
     </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.42" r="0.62">
+      <stop offset="0" stop-color="#ffe28a"/>
+      <stop offset="0.55" stop-color="#ff9d2e"/>
+      <stop offset="1" stop-color="#ff6a13"/>
+    </radialGradient>
+    <linearGradient id="ray" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e5350b"/>
+      <stop offset="1" stop-color="#ff9a2b"/>
+    </linearGradient>
+    <path id="rp" d="M256 84 L282 178 L230 178 Z" fill="url(#ray)"/>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#g)"/>
-  <path d="M176 366 L256 150 L336 366" fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M206 300 L306 300" stroke="#ffffff" stroke-width="30" stroke-linecap="round"/>
-  <circle cx="256" cy="132" r="15" fill="#ffffff"/>
+
+  <!-- Brand gradient tile -->
+  <rect width="512" height="512" rx="112" fill="url(#tile)"/>
+
+  <!-- Soft halo behind the sun -->
+  <circle cx="256" cy="256" r="132" fill="#ffffff" opacity="0.14"/>
+
+  <!-- Rays (12, evenly spaced) -->
+  <g>
+    <use href="#rp" transform="rotate(0 256 256)"/>
+    <use href="#rp" transform="rotate(30 256 256)"/>
+    <use href="#rp" transform="rotate(60 256 256)"/>
+    <use href="#rp" transform="rotate(90 256 256)"/>
+    <use href="#rp" transform="rotate(120 256 256)"/>
+    <use href="#rp" transform="rotate(150 256 256)"/>
+    <use href="#rp" transform="rotate(180 256 256)"/>
+    <use href="#rp" transform="rotate(210 256 256)"/>
+    <use href="#rp" transform="rotate(240 256 256)"/>
+    <use href="#rp" transform="rotate(270 256 256)"/>
+    <use href="#rp" transform="rotate(300 256 256)"/>
+    <use href="#rp" transform="rotate(330 256 256)"/>
+  </g>
+
+  <!-- Sun disc -->
+  <circle cx="256" cy="256" r="116" fill="url(#sun)"/>
+  <circle cx="256" cy="256" r="116" fill="none" stroke="#fff3d6" stroke-width="6" opacity="0.55"/>
 </svg>

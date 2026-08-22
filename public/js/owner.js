@@ -4,7 +4,7 @@
   const $ = (id) => document.getElementById(id);
   const money = (n) => '₹' + Number(n).toFixed(0);
   const state = {
-    token: null, restaurant: null, orders: [], staff: [], menu: [], socket: null,
+    token: null, restaurant: null, orders: [], staff: [], menu: [], history: [], socket: null,
     newItemImage: '', newSectionImage: '',
   };
 
@@ -61,9 +61,10 @@
     Analytics: ['analyticsView', loadAnalytics],
     Staff: ['staffView', loadStaff],
     Settings: ['settingsView', loadSettings],
+    History: ['historyView', tabNoop],
   };
   function tabNoop() {}
-  const tabBtns = { Orders: 'tabOrders', Menu: 'tabMenu', Analytics: 'tabAnalytics', Staff: 'tabStaff', Settings: 'tabSettings' };
+  const tabBtns = { Orders: 'tabOrders', Menu: 'tabMenu', Analytics: 'tabAnalytics', Staff: 'tabStaff', Settings: 'tabSettings', History: 'tabHistory' };
   Object.keys(tabBtns).forEach((name) =>
     $(tabBtns[name]).addEventListener('click', () => switchTab(name))
   );
@@ -109,43 +110,93 @@
   }
 
   /* -------------------------- Orders board ------------------------ */
+  // Live board shows only ACTIVE orders; concluded ones live in the History tab.
   function renderAll() {
     const active = state.orders.filter((o) => o.status !== 'closed' && o.status !== 'cancelled');
-    $('emptyState').classList.toggle('hidden', state.orders.length > 0);
+    $('emptyState').classList.toggle('hidden', active.length > 0);
     const grid = $('ordersGrid');
     grid.innerHTML = '';
-    const ordered = [...active, ...state.orders.filter((o) => !active.includes(o))];
-    ordered.forEach((o) => grid.appendChild(card(o)));
+    active
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .forEach((o) => grid.appendChild(card(o)));
   }
 
   function card(o) {
-    const el = document.createElement('div');
-    el.className = 'order-card';
-    el.id = 'ord-' + o.id;
-    const items = o.items.map((i) => '<li>' + i.qty + ' × ' + esc(i.name) + '</li>').join('');
-    const payClass = o.paymentStatus === 'paid' ? 'paid' : 'pending';
     const payText = o.paymentStatus === 'paid'
-      ? 'paid' + (o.paymentMethod ? ' · ' + o.paymentMethod : '')
-      : 'unpaid';
+      ? 'paid' + (o.paymentMethod ? ' · ' + o.paymentMethod : '') : 'unpaid';
+    const sub = esc(o.customer.name || 'Guest') + ' · ' + timeAgo(o.createdAt) +
+      (o.assignedWaiterName ? ' · 🧑‍💼 ' + esc(o.assignedWaiterName) : ' · <i>unassigned</i>');
+    return makeOrderRow({
+      id: o.id,
+      title: 'Table ' + (o.tableNumber != null ? o.tableNumber : '?'),
+      sub: sub,
+      statusText: o.status,
+      statusClass: '',
+      items: o.items,
+      extraDetailHtml:
+        '<div style="margin:6px 0"><strong>' + money(o.total) + '</strong> · ' +
+        '<span class="pill ' + (o.paymentStatus === 'paid' ? 'paid' : 'pending') + '">' + payText + '</span></div>',
+      actions: [{
+        label: 'Cancel', cls: 'ghost',
+        onClick: () => { if (confirm('Cancel this order?')) updateStatus(o.id, 'cancelled'); },
+      }],
+    });
+  }
 
-    el.innerHTML =
-      '<h4><span>Table ' + esc(String(o.tableNumber != null ? o.tableNumber : '?')) + '</span>' +
-      '<span class="pill ' + payClass + '">' + payText + '</span></h4>' +
-      '<div class="muted" style="font-size:12px">' + esc(o.customer.name || 'Guest') + ' · ' + timeAgo(o.createdAt) +
-      (o.assignedWaiterName ? ' · 🧑‍💼 ' + esc(o.assignedWaiterName) : ' · <i>unassigned</i>') + '</div>' +
-      '<ul class="order-items">' + items + '</ul>' +
-      '<div><strong>' + money(o.total) + '</strong> · <span class="pill">' + esc(o.status) + '</span></div>' +
-      '<div class="status-row" id="sr-' + o.id + '"></div>';
-
-    if (o.status !== 'closed' && o.status !== 'cancelled') {
-      const c = document.createElement('button');
-      c.className = 'ghost';
-      c.style.width = 'auto';
-      c.textContent = 'Cancel';
-      c.onclick = () => { if (confirm('Cancel this order?')) updateStatus(o.id, 'cancelled'); };
-      el.querySelector('#sr-' + o.id).appendChild(c);
+  /* --------------------------- History ---------------------------- */
+  $('hLoad').addEventListener('click', loadHistory);
+  $('hCsv').addEventListener('click', downloadHistoryCsv);
+  async function loadHistory() {
+    $('historyError').textContent = '';
+    try {
+      const q = [];
+      if ($('hFrom').value) q.push('from=' + $('hFrom').value);
+      if ($('hTo').value) q.push('to=' + $('hTo').value);
+      const data = await API.get('/owner/history' + (q.length ? '?' + q.join('&') : ''), state.token);
+      state.history = data.orders;
+      renderHistory();
+    } catch (e) { $('historyError').textContent = e.message; }
+  }
+  function renderHistory() {
+    const wrap = $('historyList');
+    if (!state.history.length) {
+      wrap.innerHTML = '<div class="muted">No concluded orders in this range. Pick a range and Load.</div>';
+      return;
     }
-    return el;
+    wrap.innerHTML =
+      '<table><thead><tr><th>When</th><th>Table</th><th>Status</th><th>Payment</th><th>Total</th></tr></thead><tbody>' +
+      state.history.map((o) =>
+        '<tr><td>' + esc(fmtDate(o.closedAt || o.createdAt)) + '</td>' +
+        '<td>' + esc(String(o.tableNumber)) + '</td>' +
+        '<td>' + esc(o.status) + '</td>' +
+        '<td>' + esc(o.paymentStatus + (o.paymentMethod ? ' · ' + o.paymentMethod : '')) + '</td>' +
+        '<td>' + money(o.total) + '</td></tr>').join('') +
+      '</tbody></table>';
+  }
+  function downloadHistoryCsv() {
+    if (!state.history.length) { $('historyError').textContent = 'Load a range first.'; return; }
+    const cell = (v) => {
+      v = String(v == null ? '' : v);
+      return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    };
+    const header = ['Order ID', 'Table', 'Status', 'Payment', 'Method', 'Total', 'Items', 'Placed', 'Closed', 'Customer'];
+    const lines = [header.join(',')];
+    state.history.forEach((o) => {
+      const items = (o.items || []).map((i) => i.qty + 'x ' + i.name).join('; ');
+      lines.push([o.id, o.tableNumber, o.status, o.paymentStatus, o.paymentMethod || '', o.total,
+        items, o.createdAt, o.closedAt || '', (o.customer && o.customer.name) || ''].map(cell).join(','));
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'avenza-history-' + state.restaurant.code + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  function fmtDate(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString();
   }
 
   async function updateStatus(id, status) {

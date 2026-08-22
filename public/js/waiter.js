@@ -155,44 +155,29 @@
   }
 
   function card(o, lane) {
-    const el = document.createElement('div');
-    el.className = 'order-card';
-    el.id = 'ord-' + o.id;
-    const items = o.items.map((i) => '<li>' + i.qty + ' × ' + esc(i.name) + '</li>').join('');
     const unassigned = !o.assignedWaiterId;
-
-    el.innerHTML =
-      '<h4><span>Table ' + esc(String(o.tableNumber)) + '</span>' +
-      '<span class="pill">' + esc(o.status) + '</span></h4>' +
-      '<div class="muted" style="font-size:12px">' + esc(o.customer.name || 'Guest') +
-      ' · ' + timeAgo(o.createdAt) + (unassigned ? ' · <b>pool</b>' : '') + '</div>' +
-      '<ul class="order-items">' + items + '</ul>' +
-      '<div><strong>' + money(o.total) + '</strong></div>' +
-      '<div class="status-row" id="sr-' + o.id + '"></div>';
-
-    const row = el.querySelector('#sr-' + o.id);
-    if (lane === 'new') {
-      row.appendChild(btn('Confirm & send to kitchen', 'primary', () => act(o.id, 'PATCH', 'confirm')));
-    } else if (lane === 'kitchen') {
-      const wait = document.createElement('span');
-      wait.className = 'muted';
-      wait.style.fontSize = '13px';
-      wait.textContent = o.status === 'preparing' ? 'Cooking…' : 'Sent to kitchen…';
-      row.appendChild(wait);
-    } else if (lane === 'ready') {
-      row.appendChild(btn('Mark served', 'primary', () => act(o.id, 'PATCH', 'serve')));
-    } else if (lane === 'served') {
-      row.appendChild(btn('Settle & close', 'primary', () => openSettle(o)));
-    }
+    const actions = [];
+    if (lane === 'new') actions.push({ label: 'Confirm & send to kitchen', cls: 'primary', onClick: () => act(o.id, 'PATCH', 'confirm') });
+    else if (lane === 'ready') actions.push({ label: 'Mark served', cls: 'primary', onClick: () => act(o.id, 'PATCH', 'serve') });
+    else if (lane === 'served') actions.push({ label: 'Settle & close', cls: 'primary', onClick: () => openSettle(o) });
     if (['new', 'kitchen', 'ready'].includes(lane)) {
-      row.appendChild(btn('Edit / add items', 'ghost', () => openEdit(o)));
+      actions.push({ label: 'Edit / add items', cls: 'ghost', onClick: () => openEdit(o) });
     }
     if (isActive(o) && o.status !== 'served') {
-      row.appendChild(btn('Cancel', 'ghost', () => {
-        if (confirm('Cancel this order?')) act(o.id, 'PATCH', 'cancel');
-      }));
+      actions.push({ label: 'Cancel', cls: 'ghost', onClick: () => { if (confirm('Cancel this order?')) act(o.id, 'PATCH', 'cancel'); } });
     }
-    return el;
+    const sub = esc(o.customer.name || 'Guest') + ' · ' + timeAgo(o.createdAt) +
+      (unassigned ? ' · <b>pool</b>' : '') +
+      (lane === 'kitchen' ? (o.status === 'preparing' ? ' · cooking…' : ' · in kitchen') : '');
+    return makeOrderRow({
+      id: o.id,
+      title: 'Table ' + o.tableNumber,
+      sub: sub,
+      statusText: o.status,
+      items: o.items,
+      extraDetailHtml: '<div style="margin:6px 0"><strong>' + money(o.total) + '</strong></div>',
+      actions: actions,
+    });
   }
 
   /* --------------------- Edit / add items to an order ------------------- */

@@ -25,7 +25,7 @@ const config = require('../config');
  */
 const DATA_DIR = path.join(__dirname, '..', '..', 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
-const DEFAULT_DB = { restaurants: [], menuItems: [], orders: [], staff: [] };
+const DEFAULT_DB = { restaurants: [], menuItems: [], orders: [], staff: [], customers: [] };
 
 let cache = { ...DEFAULT_DB };
 let backend = null; // set by init()
@@ -75,6 +75,7 @@ function mongoBackend(uri, dbName) {
         menuItems: doc.menuItems || [],
         orders: doc.orders || [],
         staff: doc.staff || [],
+        customers: doc.customers || [],
       };
     },
     async save(db) {
@@ -97,6 +98,7 @@ async function init() {
   // Make sure older databases (created before the dine-in update) still expose
   // every collection so repositories never touch `undefined`.
   if (!Array.isArray(cache.staff)) cache.staff = [];
+  if (!Array.isArray(cache.customers)) cache.customers = [];
   return backend.name;
 }
 

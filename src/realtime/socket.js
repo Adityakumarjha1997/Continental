@@ -56,6 +56,14 @@ function initSocket(server) {
       }
     });
 
+    // Public: anyone on the checkout screen can watch table availability change.
+    socket.on('tables:subscribe', ({ code } = {}) => {
+      if (code) {
+        socket.join('tables:' + code);
+        socket.emit('tables:subscribed', { code: String(code) });
+      }
+    });
+
     socket.on('order:subscribe', ({ token } = {}) => {
       const p = authService.verifyOrderToken(token);
       if (p && p.oid) {
@@ -91,6 +99,8 @@ function pushOrder(io, order, event = 'order:update') {
     io.to('waiter:' + code + ':' + order.assignedWaiterId).emit(event, order);
   }
   io.to('order:' + order.id).emit('order:update', orderService.publicOrderView(order));
+  // Any order change may free/occupy a table — nudge checkout screens to refresh.
+  io.to('tables:' + code).emit('tables:update', { code: String(code) });
 }
 
 /**

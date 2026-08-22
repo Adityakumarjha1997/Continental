@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const restaurantRepo = require('../repositories/restaurantRepository');
 const menuRepo = require('../repositories/menuRepository');
 const staffRepo = require('../repositories/staffRepository');
+const customerRepo = require('../repositories/customerRepository');
 const authService = require('../services/authService');
 const credentials = require('../config/credentials');
 
@@ -107,8 +108,14 @@ async function ensureSeed() {
     });
   }
 
+  // A demo customer account so login works out of the box (or just sign up).
+  await customerRepo.create({
+    username: 'test',
+    passwordHash: authService.hashPassword('test123'),
+  });
+
   console.log(
-    `  Seeded ${owners.length} restaurant(s) + demo staff  ->  first: code ${firstCode}`
+    `  Seeded ${owners.length} restaurant(s) + demo staff + demo customer (test/test123)  ->  first: code ${firstCode}`
   );
 }
 

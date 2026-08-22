@@ -104,6 +104,7 @@ function staffOrderView(o) {
     assignedWaiterName: o.assignedWaiterName || null,
     customer: { name: o.customer && o.customer.name, phone: o.customer && o.customer.phone },
     createdAt: o.createdAt,
+    closedAt: o.closedAt || null,
   };
 }
 
@@ -167,8 +168,14 @@ async function createOrder({ restaurantCode, items, customer, location, tableNum
   if (!table || table < 1 || (tableCount && table > tableCount)) {
     throw httpError('Please select a valid table number', 400);
   }
-  if (orderRepo.activeTableNumbers(String(restaurantCode)).has(table)) {
-    throw httpError(`Table ${table} is currently occupied. Please pick another table or ask staff.`, 409);
+  // A table is "occupied" only for OTHER guests. The same signed-in customer may
+  // place additional orders on their own table (multiple rounds).
+  const uid = customer && customer.uid;
+  const activeOnTable = orderRepo.activeOrdersByTable(String(restaurantCode), table);
+  const allMine = activeOnTable.length > 0 &&
+    activeOnTable.every((o) => o.customer && o.customer.uid && o.customer.uid === uid);
+  if (activeOnTable.length && !allMine) {
+    throw httpError(`Table ${table} is currently occupied by another guest. Please pick another table or ask staff.`, 409);
   }
 
   // 3. Rebuild the cart from trusted server data (prices from the DB).
@@ -183,7 +190,7 @@ async function createOrder({ restaurantCode, items, customer, location, tableNum
     items: lineItems,
     total,
     currency: restaurant.currency || config.payment.currency,
-    customer: { name: customer?.name || 'Guest', phone: customer?.phone || '' },
+    customer: { name: customer?.name || 'Guest', uid: customer?.uid || null },
     status: 'placed',
     paymentStatus: 'unpaid',
     paymentMethod: null,
@@ -198,7 +205,10 @@ async function createOrder({ restaurantCode, items, customer, location, tableNum
 /** Generic status change, validated against the known lifecycle. */
 async function updateStatus(orderId, status) {
   if (!ORDER_STATUSES.includes(status)) throw httpError('Invalid order status', 400);
-  return orderRepo.update(orderId, { status });
+  const patch = { status };
+  // Stamp when an order reaches a conclusive state (for History reporting).
+  if (status === 'closed' || status === 'cancelled') patch.closedAt = new Date().toISOString();
+  return orderRepo.update(orderId, patch);
 }
 
 /** Settle the bill at the table: record method, mark paid, close the order. */
@@ -210,6 +220,7 @@ async function settleOrder(orderId, method) {
     paymentStatus: 'paid',
     paymentMethod: method,
     status: 'closed',
+    closedAt: new Date().toISOString(),
   });
 }
 

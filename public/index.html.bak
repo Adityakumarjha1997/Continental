@@ -119,7 +119,7 @@
       <div id="trackCard" class="card"></div>
       <div class="timeline" id="trackTimeline"></div>
       <div id="payPanel" class="card hidden"></div>
-      <button class="primary" id="newOrderBtn">Place another order</button>
+      <button class="primary" id="newOrderBtn">Back to Main Menu</button>
     </section>
 
     <!-- My orders (history + reorder) -->
@@ -136,6 +136,9 @@
       </button>
       <button class="bn-item" id="navOrders" aria-label="My orders">
         <span class="ic" data-icon="orders"></span><span class="bn-lbl">My orders</span>
+      </button>
+      <button class="bn-item" id="navTheme" aria-label="Toggle light/dark">
+        <span class="ic" data-icon="theme"></span><span class="bn-lbl">Theme</span>
       </button>
     </nav>
   </div>

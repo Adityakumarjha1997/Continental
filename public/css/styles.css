@@ -751,14 +751,19 @@ html[data-theme="dark"] .ic { background: rgba(30, 27, 58, 0.72); border-color: 
 /* UPI app pay buttons (customer settlement panel) */
 .pay-apps { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
 .pay-app {
-  display: block; text-align: center; text-decoration: none;
-  padding: 13px; border-radius: var(--r-md); font-weight: 800; color: #fff;
+  display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none;
+  padding: 12px; border-radius: var(--r-md); font-weight: 800; color: #fff;
   box-shadow: var(--shadow-sm);
 }
 .pay-app.gpay { background: #1a73e8; }
 .pay-app.phonepe { background: #5f259f; }
 .pay-app.anyupi { background: var(--grad-2); }
 .pay-app:active { transform: translateY(1px); }
+.pa-logo {
+  width: 26px; height: 26px; border-radius: 7px; background: #fff; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.pa-logo.pe { color: #5f259f; font-weight: 900; font-size: 13px; font-style: italic; }
 
 /* Waiter edit-items modal */
 .edit-list { max-height: 52vh; overflow: auto; margin-bottom: 10px; }
@@ -783,5 +788,29 @@ html[data-theme="dark"] .ic { background: rgba(30, 27, 58, 0.72); border-color: 
   padding: 6px 12px; border-radius: 999px;
 }
 .ks-chip b { font-size: 16px; margin-right: 3px; }
+
+/* Collapsible order ROWS (owner/waiter/kitchen boards) — status on the right,
+   click to expand full details. Replaces the boxed card grid. */
+.orders-grid { display: block; }
+.order-row {
+  background: var(--card-solid); border: 1.5px solid #f3f4f6; border-left: 5px solid var(--brand-2);
+  border-radius: var(--r-md); box-shadow: var(--shadow-sm); margin-bottom: 10px; overflow: hidden;
+}
+.order-row.flash { animation: flash 1.2s ease; }
+.or-head { display: flex; align-items: center; gap: 12px; padding: 13px 16px; cursor: pointer; }
+.or-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.or-main strong { color: var(--ink); }
+.or-sub { font-size: 12px; color: var(--muted); }
+.or-chevron { color: var(--muted); font-size: 13px; transition: transform 0.15s ease; }
+.order-row.open .or-chevron { transform: rotate(180deg); }
+.or-details { padding: 0 16px 14px; }
+.or-details .order-items { margin-top: 0; }
+html[data-theme="dark"] .order-row { border-color: #2a2748; border-left-color: var(--brand-2); }
+
+/* History tab (owner): date range + results + CSV download */
+.history-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.history-controls > div { flex: 1; min-width: 140px; }
+.history-controls input[type="date"] { margin-bottom: 0; }
+.history-actions { display: flex; gap: 8px; }
 html[data-theme="dark"] .geo-chip.ok { background: rgba(22, 163, 74, 0.15); }
 html[data-theme="dark"] .geo-chip.warn { background: rgba(220, 38, 38, 0.15); }

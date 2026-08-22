@@ -55,6 +55,7 @@
         <button class="tab" id="tabAnalytics">Analytics</button>
         <button class="tab" id="tabStaff">Staff</button>
         <button class="tab" id="tabSettings">Settings</button>
+        <button class="tab" id="tabHistory">History</button>
       </div>
 
       <!-- Orders -->
@@ -162,6 +163,26 @@
           </p>
         </div>
         <div id="staffList"></div>
+      </div>
+
+      <!-- History -->
+      <div id="historyView" class="hidden">
+        <div class="card">
+          <h4>Order history</h4>
+          <p class="muted" style="font-size:13px;margin-top:0">
+            Concluded orders (paid/closed or cancelled). Pick a date range, load, and download as CSV.
+          </p>
+          <div class="history-controls">
+            <div><label>From</label><input type="date" id="hFrom" /></div>
+            <div><label>To</label><input type="date" id="hTo" /></div>
+            <div class="history-actions">
+              <button class="primary" id="hLoad" style="width:auto">Load</button>
+              <button class="ghost" id="hCsv" style="width:auto">Download CSV</button>
+            </div>
+          </div>
+          <div class="error" id="historyError"></div>
+        </div>
+        <div class="card"><div id="historyList"></div></div>
       </div>
 
       <!-- Settings -->

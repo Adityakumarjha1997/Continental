@@ -6,10 +6,54 @@ const router = express.Router();
 const restaurantRepo = require('../repositories/restaurantRepository');
 const menuRepo = require('../repositories/menuRepository');
 const orderRepo = require('../repositories/orderRepository');
+const customerRepo = require('../repositories/customerRepository');
 const orderService = require('../services/orderService');
 const authService = require('../services/authService');
 const geo = require('../services/geoService');
 const { pushOrder } = require('../realtime/socket');
+const { getToken } = require('../middleware/auth');
+
+/** Returns the signed-in customer payload {uid, username} or null. */
+function customerFromReq(req) {
+  const p = authService.verifyToken(getToken(req));
+  return p && p.role === 'customer' ? p : null;
+}
+
+/* --------------------------- Customer auth ----------------------------- */
+
+/** Sign up a new customer account. */
+router.post('/signup', async (req, res, next) => {
+  try {
+    const { username, password, confirmPassword } = req.body || {};
+    const u = String(username || '').trim();
+    if (u.length < 3) return res.status(400).json({ error: 'Username must be at least 3 characters' });
+    if (!password || String(password).length < 4) {
+      return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    }
+    if (password !== confirmPassword) return res.status(400).json({ error: 'Passwords do not match' });
+    if (customerRepo.findByUsername(u)) return res.status(409).json({ error: 'That username is already taken' });
+
+    const customer = await customerRepo.create({
+      username: u,
+      passwordHash: authService.hashPassword(String(password)),
+    });
+    const token = authService.signToken({ role: 'customer', uid: customer.id, username: customer.username }, '30d');
+    res.status(201).json({ token, username: customer.username });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Log in an existing customer. */
+router.post('/login', (req, res) => {
+  const { username, password } = req.body || {};
+  const c = customerRepo.findByUsername(username);
+  if (!c || !authService.verifyPassword(password || '', c.passwordHash)) {
+    return res.status(401).json({ error: 'Invalid username or password' });
+  }
+  const token = authService.signToken({ role: 'customer', uid: c.id, username: c.username }, '30d');
+  res.json({ token, username: c.username });
+});
 
 /** Look up a restaurant by its 3-digit code (customer entered it on the keypad). */
 router.get('/restaurants/:code', (req, res) => {
@@ -32,14 +76,30 @@ router.get('/restaurants/:code/menu', (req, res) => {
   });
 });
 
-/** Which table numbers are free vs occupied, so the picker can grey out taken ones. */
+/**
+ * Which table numbers are free vs occupied. A table occupied by the requesting
+ * customer's OWN live order is NOT reported as occupied to them (so they can add
+ * another round), and is returned in `myTables`.
+ */
 router.get('/restaurants/:code/tables', (req, res) => {
   const r = restaurantRepo.findByCode(req.params.code);
   if (!r) return res.status(404).json({ error: 'Not found' });
-  res.json({
-    tables: Number(r.tables) || 0,
-    occupied: Array.from(orderRepo.activeTableNumbers(req.params.code)),
+  const uid = (customerFromReq(req) || {}).uid;
+
+  const byTable = {};
+  orderRepo.byRestaurant(req.params.code).forEach((o) => {
+    if (o.status !== 'closed' && o.status !== 'cancelled' && o.tableNumber != null) {
+      (byTable[o.tableNumber] = byTable[o.tableNumber] || []).push(o);
+    }
   });
+  const occupied = [];
+  const myTables = [];
+  Object.keys(byTable).forEach((t) => {
+    const mine = byTable[t].every((o) => o.customer && o.customer.uid && o.customer.uid === uid);
+    if (mine) myTables.push(Number(t));
+    else occupied.push(Number(t));
+  });
+  res.json({ tables: Number(r.tables) || 0, occupied, myTables });
 });
 
 /** Distance check so the UI can enable/disable the order button live. */
@@ -78,11 +138,13 @@ router.get('/restaurants/:code/orders', (req, res) => {
  */
 router.post('/orders', async (req, res, next) => {
   try {
-    const { restaurantCode, items, customer, location, tableNumber } = req.body || {};
+    const cust = customerFromReq(req);
+    if (!cust) return res.status(401).json({ error: 'Please sign in to place an order' });
+    const { restaurantCode, items, location, tableNumber } = req.body || {};
     const result = await orderService.createOrder({
       restaurantCode,
       items,
-      customer,
+      customer: { uid: cust.uid, name: cust.username },
       location,
       tableNumber,
     });

@@ -89,6 +89,49 @@ window.requestNotifyPermission = function () {
   } catch (_) {}
 };
 
+/* Shared collapsible order-row (used by owner/waiter/kitchen boards). Renders a
+   compact row with the status on the right; clicking it expands full details.
+   opts: { id, title, sub(html), statusText, statusClass, items:[{qty,name}],
+           extraDetailHtml, actions:[{label,cls,onClick}], flash } */
+window.makeOrderRow = function (opts) {
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const el = document.createElement('div');
+  el.className = 'order-row' + (opts.flash ? ' flash' : '');
+  el.id = 'ord-' + opts.id;
+
+  const head = document.createElement('div');
+  head.className = 'or-head';
+  head.innerHTML =
+    '<div class="or-main"><strong>' + esc(opts.title) + '</strong>' +
+    (opts.sub ? '<span class="or-sub">' + opts.sub + '</span>' : '') + '</div>' +
+    '<span class="pill ' + (opts.statusClass || '') + '">' + esc(opts.statusText) + '</span>' +
+    '<span class="or-chevron">▾</span>';
+
+  const details = document.createElement('div');
+  details.className = 'or-details hidden';
+  const itemsHtml = (opts.items || []).map((i) => '<li>' + i.qty + ' × ' + esc(i.name) + '</li>').join('');
+  details.innerHTML = '<ul class="order-items">' + itemsHtml + '</ul>' + (opts.extraDetailHtml || '');
+  const actRow = document.createElement('div');
+  actRow.className = 'status-row';
+  (opts.actions || []).forEach((a) => {
+    const b = document.createElement('button');
+    b.className = a.cls || 'ghost';
+    b.style.width = 'auto';
+    b.textContent = a.label;
+    b.onclick = (e) => { e.stopPropagation(); a.onClick(); };
+    actRow.appendChild(b);
+  });
+  details.appendChild(actRow);
+
+  head.addEventListener('click', () => {
+    details.classList.toggle('hidden');
+    el.classList.toggle('open');
+  });
+  el.appendChild(head);
+  el.appendChild(details);
+  return el;
+};
+
 /* Reusable line-icon set. Any element with class "ic" + data-icon="<name>" gets
    the matching glyph injected, so the same back/home/orders icons render
    identically across every page. Call applyIcons() again after dynamic renders. */

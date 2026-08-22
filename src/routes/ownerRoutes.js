@@ -67,6 +67,25 @@ router.get('/restaurant', requireOwner, (req, res) => {
   res.json({ restaurant: orderService.publicRestaurant(r) });
 });
 
+/**
+ * History: concluded orders (closed/cancelled) for this restaurant within an
+ * optional date range (YYYY-MM-DD). This is the "fact" data the owner exports.
+ */
+router.get('/history', requireOwner, (req, res) => {
+  const { from, to } = req.query;
+  const fromT = from ? new Date(from + 'T00:00:00').getTime() : 0;
+  const toT = to ? new Date(to + 'T23:59:59.999').getTime() : Date.now();
+  const rows = orderRepo
+    .byRestaurant(req.owner.code)
+    .filter((o) => {
+      if (o.status !== 'closed' && o.status !== 'cancelled') return false;
+      const t = new Date(o.closedAt || o.createdAt).getTime();
+      return t >= fromT && t <= toT;
+    })
+    .map(orderService.staffOrderView);
+  res.json({ orders: rows });
+});
+
 /** Owner can cancel / override an order's status; broadcasts the change live. */
 router.patch('/orders/:id', requireOwner, async (req, res, next) => {
   try {

@@ -108,22 +108,17 @@
   }
 
   function card(o) {
-    const el = document.createElement('div');
-    el.className = 'order-card';
-    el.id = 'ord-' + o.id;
-    const items = o.items.map((i) => '<li>' + i.qty + ' × ' + esc(i.name) + '</li>').join('');
-    el.innerHTML =
-      '<h4><span>Table ' + esc(String(o.tableNumber)) + '</span>' +
-      '<span class="pill">' + esc(o.status) + '</span></h4>' +
-      '<div class="muted" style="font-size:12px">' + timeAgo(o.createdAt) + '</div>' +
-      '<ul class="order-items">' + items + '</ul>' +
-      '<div class="status-row" id="sr-' + o.id + '"></div>';
-    const row = el.querySelector('#sr-' + o.id);
-    if (o.status === 'confirmed') {
-      row.appendChild(btn('Start cooking', 'ghost', () => act(o.id, 'start')));
-    }
-    row.appendChild(btn('Mark ready', 'primary', () => act(o.id, 'ready')));
-    return el;
+    const actions = [];
+    if (o.status === 'confirmed') actions.push({ label: 'Start cooking', cls: 'ghost', onClick: () => act(o.id, 'start') });
+    actions.push({ label: 'Mark ready', cls: 'primary', onClick: () => act(o.id, 'ready') });
+    return makeOrderRow({
+      id: o.id,
+      title: 'Table ' + o.tableNumber,
+      sub: timeAgo(o.createdAt),
+      statusText: o.status,
+      items: o.items,
+      actions: actions,
+    });
   }
 
   async function act(id, path) {

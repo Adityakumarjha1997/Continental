@@ -14,7 +14,19 @@
     orderToken: null,
     currentOrder: null,
     trackSocket: null,
+    tablesSocket: null,
+    customerToken: null,
+    username: null,
   };
+  const TKEY = 'avenza_customer_token';
+  const UKEY = 'avenza_customer_user';
+  const GOOGLE_G =
+    '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>' +
+    '<path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>' +
+    '<path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>' +
+    '<path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>' +
+    '</svg>';
 
   const HKEY = 'avenza_orders'; // local order history (this device)
   const PKEY = 'avenza_phone';
@@ -22,17 +34,57 @@
   const money = (n) => '₹' + Number(n).toFixed(0);
 
   /* ---------------------------- Login ----------------------------- */
-  $('googleBtn').addEventListener('click', () => show('keypadScreen'));
-  $('loginBtn').addEventListener('click', () => {
-    const u = $('loginUser').value.trim();
-    const p = $('loginPass').value.trim();
-    if (!u || !p) {
-      $('loginError').textContent = 'Enter any username and password to continue';
-      return;
-    }
+  function setSession(token, username) {
+    state.customerToken = token;
+    state.username = username;
+    localStorage.setItem(TKEY, token);
+    localStorage.setItem(UKEY, username);
+  }
+
+  // Google sign-in is not wired yet.
+  $('googleBtn').addEventListener('click', () =>
+    alert('Google sign-in is coming soon. Please sign in with a username/password, or create an account.')
+  );
+
+  $('loginBtn').addEventListener('click', doLogin);
+  $('loginPass').addEventListener('keydown', (e) => e.key === 'Enter' && doLogin());
+  async function doLogin() {
     $('loginError').textContent = '';
-    show('keypadScreen');
+    const username = $('loginUser').value.trim();
+    const password = $('loginPass').value;
+    if (!username || !password) { $('loginError').textContent = 'Enter your username and password'; return; }
+    try {
+      const data = await API.post('/public/login', { username, password });
+      setSession(data.token, data.username);
+      show('keypadScreen');
+    } catch (e) { $('loginError').textContent = e.message; }
+  }
+
+  // Sign-up modal
+  $('signupBtn').addEventListener('click', () => { $('suError').textContent = ''; $('signupBackdrop').classList.remove('hidden'); });
+  $('suCancel').addEventListener('click', () => $('signupBackdrop').classList.add('hidden'));
+  $('signupBackdrop').addEventListener('click', (e) => { if (e.target === $('signupBackdrop')) $('signupBackdrop').classList.add('hidden'); });
+  $('suSubmit').addEventListener('click', async () => {
+    $('suError').textContent = '';
+    try {
+      const data = await API.post('/public/signup', {
+        username: $('suUser').value.trim(),
+        password: $('suPass').value,
+        confirmPassword: $('suPass2').value,
+      });
+      setSession(data.token, data.username);
+      $('signupBackdrop').classList.add('hidden');
+      alert('Signed up and logged in — welcome, ' + data.username + '!');
+      show('keypadScreen');
+    } catch (e) { $('suError').textContent = e.message; }
   });
+
+  // Auto-login if a session token is already stored on this device.
+  (function autoLogin() {
+    const t = localStorage.getItem(TKEY);
+    const u = localStorage.getItem(UKEY);
+    if (t && u) { state.customerToken = t; state.username = u; show('keypadScreen'); }
+  })();
 
   /* ---------------------------- Keypad ---------------------------- */
   const codeDisplay = $('codeDisplay');
@@ -67,11 +119,25 @@
       show('menuScreen');
       renderMenu();
       checkLocation();
+      connectTables();
     } catch (e) {
       $('keypadError').textContent = e.message;
       state.code = '';
       codeDisplay.textContent = '';
     }
+  }
+
+  // Live table availability: refresh the picker whenever any order changes.
+  function connectTables() {
+    if (state.tablesSocket || typeof io !== 'function') return;
+    try {
+      const s = io();
+      state.tablesSocket = s;
+      s.on('connect', () => s.emit('tables:subscribe', { code: state.code }));
+      s.on('tables:update', () => {
+        if (!$('checkoutScreen').classList.contains('hidden')) populateTables();
+      });
+    } catch (_) {}
   }
 
   /* ---------------------------- Menu ------------------------------ */
@@ -260,16 +326,21 @@
     const max = n > 0 ? n : 20;
     $('tableHint').textContent = n > 0 ? '(1–' + n + ')' : '';
     let occupied = [];
+    let mine = [];
     try {
-      const d = await API.get('/public/restaurants/' + state.code + '/tables');
+      const d = await API.get('/public/restaurants/' + state.code + '/tables', state.customerToken);
       occupied = d.occupied || [];
+      mine = d.myTables || [];
     } catch (_) {}
+    const prev = sel.value;
     sel.innerHTML = '<option value="">Select table…</option>';
     for (let i = 1; i <= max; i++) {
-      const taken = occupied.indexOf(i) !== -1;
+      const taken = occupied.indexOf(i) !== -1; // occupied by someone else
+      const isMine = mine.indexOf(i) !== -1;
       sel.innerHTML += '<option value="' + i + '"' + (taken ? ' disabled' : '') + '>Table ' + i +
-        (taken ? ' — occupied' : '') + '</option>';
+        (taken ? ' — occupied' : isMine ? ' — your table' : '') + '</option>';
     }
+    if (prev) sel.value = prev; // keep the user's current pick across live refreshes
   }
 
   function goCheckout() {
@@ -281,8 +352,6 @@
         '</span><strong>' + money(l.price * l.qty) + '</strong></div>').join('') +
       '<div class="menu-item"><strong>Total</strong><strong>' + money(cartTotal()) + '</strong></div>';
     populateTables();
-    const savedPhone = localStorage.getItem(PKEY);
-    if (savedPhone && !$('custPhone').value) $('custPhone').value = savedPhone;
     show('checkoutScreen');
   }
   $('backToMenu').addEventListener('click', () => show('menuScreen'));
@@ -290,22 +359,21 @@
 
   $('payBtn').addEventListener('click', async () => {
     $('checkoutError').textContent = '';
-    const name = $('custName').value.trim();
-    const phone = $('custPhone').value.trim();
     const tableNumber = parseInt($('tableSelect').value, 10);
     if (!tableNumber) return ($('checkoutError').textContent = 'Please select your table number');
-    if (!name) return ($('checkoutError').textContent = 'Please enter your name');
-    if (phone) localStorage.setItem(PKEY, phone);
 
     $('payBtn').disabled = true;
     try {
-      const data = await API.post('/public/orders', {
-        restaurantCode: state.code,
-        items: cartLines().map((l) => ({ itemId: l.itemId, qty: l.qty })),
-        customer: { name, phone },
-        location: state.location,
-        tableNumber,
-      });
+      const data = await API.post(
+        '/public/orders',
+        {
+          restaurantCode: state.code,
+          items: cartLines().map((l) => ({ itemId: l.itemId, qty: l.qty })),
+          location: state.location,
+          tableNumber,
+        },
+        state.customerToken
+      );
       startTracking(data.order, data.orderToken);
     } catch (e) {
       $('checkoutError').textContent = e.message;
@@ -362,28 +430,20 @@
 
       const appBtns = upiId
         ? '<div class="pay-apps">' +
-          '<a class="pay-app gpay" href="' + esc(upiLink('tez://upi/pay?', upiId, r.name, o.total, note)) + '">Pay with GPay</a>' +
-          '<a class="pay-app phonepe" href="' + esc(upiLink('phonepe://pay?', upiId, r.name, o.total, note)) + '">Pay with PhonePe</a>' +
+          '<a class="pay-app gpay" href="' + esc(upiLink('tez://upi/pay?', upiId, r.name, o.total, note)) + '">' +
+            '<span class="pa-logo">' + GOOGLE_G + '</span>Pay with GPay</a>' +
+          '<a class="pay-app phonepe" href="' + esc(upiLink('phonepe://pay?', upiId, r.name, o.total, note)) + '">' +
+            '<span class="pa-logo pe">Pe</span>Pay with PhonePe</a>' +
           '<a class="pay-app anyupi" href="' + esc(upiLink('upi://pay?', upiId, r.name, o.total, note)) + '">Any UPI app</a>' +
           '</div>' +
-          '<div class="muted" style="font-size:11px;margin-top:4px">Paying to ' + esc(upiId) + ' · opens your UPI app on a phone</div>'
-        : '';
-
-      const qrList = qrs.length
-        ? '<div class="qr-list">' + qrs.map((q) =>
-            '<div class="qr-card">' +
-            (q.imageUrl ? '<img src="' + esc(q.imageUrl) + '" alt="QR" />' : '<div class="qr-ph">QR</div>') +
-            '<div><strong>' + esc(q.label) + '</strong>' +
-            (q.upiId ? '<div class="muted" style="font-size:12px">' + esc(q.upiId) + '</div>' : '') +
-            '</div></div>').join('') + '</div>'
-        : '';
+          '<div class="muted" style="font-size:11px;margin-top:6px">Paying to ' + esc(upiId) + ' · opens your UPI app on a phone</div>'
+        : '<div class="banner warn">Ask your waiter for payment details.</div>';
 
       panel.classList.remove('hidden');
       panel.innerHTML =
         '<h4>Pay ' + money(o.total) + '</h4>' +
-        '<p class="muted" style="font-size:13px;margin-top:0">Pay via a UPI app or scan a QR — or pay cash. Your waiter confirms and closes the bill.</p>' +
-        appBtns + qrList +
-        (!appBtns && !qrList ? '<div class="banner warn">Ask your waiter for payment details.</div>' : '');
+        '<p class="muted" style="font-size:13px;margin-top:0">Pay with a UPI app — or pay cash. Your waiter confirms and closes the bill.</p>' +
+        appBtns;
       return;
     }
     panel.classList.add('hidden');
@@ -465,6 +525,7 @@
 
   // Change restaurant: clear the current code/cart and go back to the keypad.
   $('navBack').addEventListener('click', () => {
+    if (state.tablesSocket) { try { state.tablesSocket.disconnect(); } catch (_) {} state.tablesSocket = null; }
     state.code = '';
     state.cart = {};
     state.restaurant = null;
