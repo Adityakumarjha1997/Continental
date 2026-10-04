@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
 
+const config = require('../config');
 const restaurantRepo = require('../repositories/restaurantRepository');
 const menuRepo = require('../repositories/menuRepository');
 const orderRepo = require('../repositories/orderRepository');
@@ -39,6 +40,52 @@ function sanitizeStaff(s) {
   };
 }
 
+/**
+ * Owner self-registration (replaces the old admin "create restaurant" panel).
+ * The owner picks their own 3-digit code, restaurant name, a password and their
+ * location (captured from the browser). The restaurant starts in `full` mode but
+ * with setup NOT complete, so the panel sends them to the setup screen next.
+ */
+router.post('/register', async (req, res, next) => {
+  try {
+    const { code, name, description, password, lat, lng, radiusMeters } = req.body || {};
+    if (!/^\d{3}$/.test(String(code || ''))) {
+      return res.status(400).json({ error: 'Code must be exactly 3 digits' });
+    }
+    if (restaurantRepo.findByCode(code)) {
+      return res.status(409).json({ error: 'That code is already in use. Pick another.' });
+    }
+    if (!name || !String(name).trim()) return res.status(400).json({ error: 'Restaurant name is required' });
+    if (!password || String(password).length < 4) {
+      return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    }
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      return res.status(400).json({ error: 'Your location is required (tap "Use my current location")' });
+    }
+
+    const restaurant = await restaurantRepo.create({
+      code: String(code),
+      name: String(name).trim(),
+      description: String(description || '').trim(),
+      upiId: '',
+      ownerPasswordHash: authService.hashPassword(String(password)),
+      location: { lat, lng },
+      radiusMeters: Number(radiusMeters) || config.defaultRadiusMeters,
+      currency: config.payment.currency,
+      active: true,
+      tables: 0,
+      paymentQRs: [],
+      grids: [],
+      mode: 'full',
+      setupComplete: false,
+    });
+    const token = authService.signToken({ role: 'owner', code: restaurant.code });
+    res.status(201).json({ token, restaurant: orderService.publicRestaurant(restaurant) });
+  } catch (e) {
+    next(e);
+  }
+});
+
 /** Owner login: 3-digit code + password. */
 router.post('/login', (req, res) => {
   const { code, password } = req.body || {};
@@ -48,6 +95,23 @@ router.post('/login', (req, res) => {
   }
   const token = authService.signToken({ role: 'owner', code: r.code });
   res.json({ token, restaurant: orderService.publicRestaurant(r) });
+});
+
+/**
+ * Save the service model the owner chose on the setup screen and mark setup done.
+ *   mode 'full'  -> owner + waiter + kitchen
+ *   mode 'small' -> owner + kitchen only (no waiter)
+ * Can be called again later from Settings to switch models.
+ */
+router.patch('/setup', requireOwner, async (req, res, next) => {
+  try {
+    const mode = req.body.mode === 'small' ? 'small' : 'full';
+    const updated = await restaurantRepo.update(req.owner.code, { mode, setupComplete: true });
+    if (!updated) return res.status(404).json({ error: 'Restaurant not found' });
+    res.json({ restaurant: orderService.publicRestaurant(updated) });
+  } catch (e) {
+    next(e);
+  }
 });
 
 /** All orders for the logged-in owner's restaurant (live monitoring board). */

@@ -18,7 +18,6 @@ router.get('/health', (req, res) =>
 
 router.use('/public', require('./publicRoutes'));
 router.use('/owner', require('./ownerRoutes'));
-router.use('/admin', require('./adminRoutes'));
 router.use('/waiter', require('./waiterRoutes'));
 router.use('/kitchen', require('./kitchenRoutes'));
 

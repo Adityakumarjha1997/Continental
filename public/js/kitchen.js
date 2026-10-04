@@ -4,7 +4,10 @@
   const $ = (id) => document.getElementById(id);
   const money = (n) => '₹' + Number(n).toFixed(0);
   const state = { token: null, staff: null, restaurant: null, orders: [], socket: null };
-  const IN_KITCHEN = ['confirmed', 'preparing'];
+  // Which statuses sit in the kitchen queue. In the small (owner + kitchen) model
+  // there is no waiter to confirm, so freshly placed orders land here directly.
+  let IN_KITCHEN = ['confirmed', 'preparing'];
+  const isSmall = () => state.restaurant && state.restaurant.mode === 'small';
 
   /* ---------------------------- Login ----------------------------- */
   $('loginBtn').addEventListener('click', login);
@@ -32,6 +35,7 @@
   async function startDashboard() {
     $('loginScreen').classList.add('hidden');
     $('dashScreen').classList.remove('hidden');
+    if (isSmall()) IN_KITCHEN = ['placed', 'preparing'];
     $('kName').textContent = state.staff.name;
     $('rName').textContent = state.restaurant ? state.restaurant.name : '';
     const data = await API.get('/kitchen/orders', state.token);
@@ -66,7 +70,7 @@
       const fresh = i < 0;
       if (i >= 0) state.orders[i] = o; else state.orders.unshift(o);
       render();
-      if (fresh) { flash(o.id); beep(); notify('New order to cook', 'Table ' + o.tableNumber); }
+      if (fresh) { flash(o.id); beep(); notify('New order to cook', o.tableNumber != null ? 'Table ' + o.tableNumber : 'Order #' + o.id.slice(0, 6)); }
     };
     socket.on('order:new', (o) => handle(o, true));
     socket.on('order:update', (o) => handle(o, false));
@@ -109,21 +113,30 @@
 
   function card(o) {
     const actions = [];
-    if (o.status === 'confirmed') actions.push({ label: 'Start cooking', cls: 'ghost', onClick: () => act(o.id, 'start') });
-    actions.push({ label: 'Mark ready', cls: 'primary', onClick: () => act(o.id, 'ready') });
+    if (isSmall()) {
+      // Small model: start cooking, then serve & close (no waiter hand-off).
+      if (o.status === 'placed') actions.push({ label: 'Start cooking', cls: 'ghost', onClick: () => act(o.id, 'start') });
+      actions.push({ label: 'Served & close', cls: 'primary', onClick: () => act(o.id, 'close', 'POST') });
+    } else {
+      if (o.status === 'confirmed') actions.push({ label: 'Start cooking', cls: 'ghost', onClick: () => act(o.id, 'start') });
+      actions.push({ label: 'Mark ready', cls: 'primary', onClick: () => act(o.id, 'ready') });
+    }
+    const title = o.tableNumber != null ? 'Table ' + o.tableNumber : 'Order #' + o.id.slice(0, 6);
     return makeOrderRow({
       id: o.id,
-      title: 'Table ' + o.tableNumber,
-      sub: timeAgo(o.createdAt),
+      title: title,
+      sub: timeAgo(o.createdAt) + ' · ' + esc(o.customer && o.customer.name ? o.customer.name : 'Guest'),
       statusText: o.status,
       items: o.items,
       actions: actions,
     });
   }
 
-  async function act(id, path) {
+  async function act(id, path, method) {
     try {
-      const res = await API.patch('/kitchen/orders/' + id + '/' + path, null, state.token);
+      const res = method === 'POST'
+        ? await API.post('/kitchen/orders/' + id + '/' + path, null, state.token)
+        : await API.patch('/kitchen/orders/' + id + '/' + path, null, state.token);
       if (res && res.order) {
         const inKitchen = IN_KITCHEN.includes(res.order.status);
         const i = state.orders.findIndex((x) => x.id === res.order.id);

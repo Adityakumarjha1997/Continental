@@ -449,6 +449,47 @@ th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spa
   width: 2px; background: #e5e7eb;
 }
 .timeline-step .lbl { font-weight: 600; font-size: 14px; }
+
+/* Owner setup: two service-model choice cards with a little role-flow diagram. */
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+.mode-card {
+  text-align: left;
+  background: var(--card-solid);
+  border: 2px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+}
+.mode-card:hover { border-color: var(--brand-2); box-shadow: var(--shadow); transform: translateY(-2px); }
+.mode-card.selected { border-color: var(--brand-2); box-shadow: var(--shadow-brand); }
+.mode-title { font-size: 20px; font-weight: 800; color: var(--ink); }
+.mode-desc { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+.mode-note { font-size: 13px; color: var(--muted); margin-top: 14px; line-height: 1.4; }
+.flow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.flow-node {
+  display: inline-block; padding: 8px 14px; border-radius: var(--r-md);
+  background: var(--grad-soft); color: var(--brand-dark);
+  font-weight: 700; font-size: 14px; border: 1.5px solid #e0e7ff;
+}
+.flow-arrow { color: var(--brand-2); font-weight: 800; font-size: 18px; }
+
+/* Prominent Order ID on the customer tracking screen (small / counter model). */
+.order-id-big {
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  margin: 4px 0 2px;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 .timeline-step.done { color: var(--ink); }
 .timeline-step.done .dot { background: var(--ok); border-color: var(--ok); }
 .timeline-step.done:not(:last-child)::before { background: var(--ok); }

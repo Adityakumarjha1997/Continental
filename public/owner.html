@@ -30,6 +30,63 @@
         <input id="ownerPass" type="password" placeholder="Password" />
         <div class="error" id="loginError"></div>
         <button class="primary" id="loginBtn">Log in</button>
+        <button class="ghost" id="showSignupBtn" style="width:100%;margin-top:10px">New here? Create your restaurant</button>
+      </div>
+    </section>
+
+    <!-- Sign up (create a restaurant) -->
+    <section id="signupScreen" class="screen hidden">
+      <div class="card" style="max-width:420px;margin:30px auto">
+        <h3 class="center">Create your restaurant</h3>
+        <p class="muted center" style="font-size:13px;margin-top:0">Pick a 3-digit code your customers will type, then set your details.</p>
+        <div class="grid-2">
+          <div><label>3-digit code</label><input id="suCode" maxlength="3" inputmode="numeric" placeholder="e.g. 481" /></div>
+          <div><label>Restaurant name</label><input id="suName" placeholder="e.g. Chai Point" /></div>
+        </div>
+        <label>Short description (optional)</label>
+        <input id="suDesc" placeholder="e.g. Fresh tea & snacks" />
+        <label>Password</label>
+        <input id="suPass" type="password" placeholder="Choose a login password" />
+        <div class="grid-2">
+          <div><label>Radius (metres)</label><input id="suRadius" inputmode="numeric" placeholder="100" /></div>
+          <div style="display:flex;align-items:flex-end">
+            <button class="ghost" id="suUseLoc" style="width:100%">📍 Use my current location</button>
+          </div>
+        </div>
+        <div class="muted" id="suLocStatus" style="font-size:12px;min-height:16px"></div>
+        <div class="error" id="signupError"></div>
+        <button class="primary" id="doSignupBtn">Create restaurant</button>
+        <button class="ghost" id="backToLoginBtn" style="width:100%;margin-top:10px">Back to login</button>
+      </div>
+    </section>
+
+    <!-- First-run setup: choose the service model -->
+    <section id="setupScreen" class="screen hidden">
+      <div style="max-width:720px;margin:24px auto">
+        <h3 class="center">How does your place run?</h3>
+        <p class="muted center" style="margin-top:0">Pick the setup that matches you. You can change this later in Settings.</p>
+        <div class="mode-grid">
+          <button class="mode-card" id="modeFull">
+            <div class="mode-title">Full scale</div>
+            <div class="mode-desc">Restaurant with waiters</div>
+            <div class="flow">
+              <span class="flow-node">Owner</span><span class="flow-arrow">→</span>
+              <span class="flow-node">Waiter</span><span class="flow-arrow">→</span>
+              <span class="flow-node">Kitchen</span>
+            </div>
+            <div class="mode-note">Waiters take & serve orders at tables, the kitchen cooks, the owner oversees everything. Full dine-in flow.</div>
+          </button>
+          <button class="mode-card" id="modeSmall">
+            <div class="mode-title">Small scale</div>
+            <div class="mode-desc">Tea shop / counter — no waiters</div>
+            <div class="flow">
+              <span class="flow-node">Owner</span><span class="flow-arrow">→</span>
+              <span class="flow-node">Kitchen</span>
+            </div>
+            <div class="mode-note">Customer pays and quotes the Order ID at the counter; the kitchen prepares and closes it. No waiter step.</div>
+          </button>
+        </div>
+        <div class="error center" id="setupError"></div>
       </div>
     </section>
 
@@ -137,7 +194,7 @@
             <div>
               <label>Role</label>
               <select id="sRole">
-                <option value="waiter">Waiter</option>
+                <option value="waiter" id="sRoleWaiter">Waiter</option>
                 <option value="kitchen">Kitchen</option>
               </select>
             </div>
@@ -158,7 +215,7 @@
           </div>
           <div class="error" id="staffError"></div>
           <button class="primary" id="addStaffBtn">Add staff member</button>
-          <p class="muted" style="font-size:12px;margin-bottom:0">
+          <p class="muted" id="staffHelp" style="font-size:12px;margin-bottom:0">
             Waiters log in at <b>/waiter.html</b>, kitchen at <b>/kitchen.html</b> with the restaurant code + these credentials.
           </p>
         </div>
@@ -187,6 +244,24 @@
 
       <!-- Settings -->
       <div id="settingsView" class="hidden">
+        <div class="card">
+          <h4>Service model</h4>
+          <p class="muted" style="font-size:13px;margin-top:0">
+            Switch between a full waiter + kitchen restaurant and a small owner + kitchen counter.
+          </p>
+          <div class="grid-2">
+            <div>
+              <label>Model</label>
+              <select id="setMode">
+                <option value="full">Full scale — owner + waiter + kitchen</option>
+                <option value="small">Small scale — owner + kitchen (no waiter)</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <button class="primary" id="saveModeBtn" style="width:100%">Save model</button>
+            </div>
+          </div>
+        </div>
         <div class="card">
           <h4>Tables</h4>
           <label>Number of tables (customers pick their table number when ordering)</label>

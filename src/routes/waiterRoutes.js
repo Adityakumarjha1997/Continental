@@ -19,13 +19,16 @@ const { pushOrder, pushStaff } = require('../realtime/socket');
  */
 router.post('/login', async (req, res) => {
   const { code, username, password } = req.body || {};
+  const restaurant = restaurantRepo.findByCode(code);
+  if (orderService.isSmallMode(restaurant)) {
+    return res.status(403).json({ error: 'This restaurant runs an owner + kitchen model with no waiters' });
+  }
   const staff = staffRepo.findLogin(code, username, 'waiter');
   if (!staff || !authService.verifyPassword(password || '', staff.passwordHash)) {
     return res.status(401).json({ error: 'Invalid code, username or password' });
   }
   await staffRepo.update(staff.id, { onShift: true });
   pushStaff(req.app.get('io'), code);
-  const restaurant = restaurantRepo.findByCode(code);
   const token = authService.signToken({ role: 'waiter', code: String(code), sid: staff.id, name: staff.name });
   res.json({
     token,

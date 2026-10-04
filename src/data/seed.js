@@ -64,6 +64,10 @@ async function ensureSeed() {
         ? [{ id: crypto.randomUUID(), label: 'Restaurant UPI', upiId: 'demo@upi', imageUrl: '' }]
         : [],
       grids: isFirst ? grids : [],
+      // Seeded restaurants use the full (owner + waiter + kitchen) model and are
+      // already set up, so the demo works end-to-end without the setup screen.
+      mode: 'full',
+      setupComplete: true,
     });
   }
 

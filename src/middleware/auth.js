@@ -16,15 +16,6 @@ function requireOwner(req, res, next) {
   next();
 }
 
-function requireAdmin(req, res, next) {
-  const payload = authService.verifyToken(getToken(req));
-  if (!payload || payload.role !== 'admin') {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  req.admin = payload;
-  next();
-}
-
 /** Waiter guard. Token payload: { role:'waiter', code, sid, name }. */
 function requireWaiter(req, res, next) {
   const payload = authService.verifyToken(getToken(req));
@@ -45,4 +36,4 @@ function requireKitchen(req, res, next) {
   next();
 }
 
-module.exports = { requireOwner, requireAdmin, requireWaiter, requireKitchen, getToken };
+module.exports = { requireOwner, requireWaiter, requireKitchen, getToken };

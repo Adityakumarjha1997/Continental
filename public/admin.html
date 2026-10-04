@@ -3,151 +3,32 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Avenza by Astravia · Admin</title>
+  <title>Avenza · Moved</title>
   <link rel="stylesheet" href="/css/styles.css" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <meta name="theme-color" content="#6366f1" />
-  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="/icon.svg" />
+  <!-- The separate admin panel has been removed. Everything is now self-service
+       in the owner portal (sign up, set up your service model, manage staff,
+       tables, menu and payments there). Redirect anyone with the old bookmark. -->
+  <meta http-equiv="refresh" content="0; url=/owner.html" />
 </head>
 <body>
-  <div class="app wide">
+  <div class="app">
     <div class="topbar">
       <div class="brand">
         <span class="brand-name">Avenza</span>
         <span class="brand-sub">by Astravia</span>
       </div>
-      <small>Admin</small>
     </div>
-
-    <!-- Login -->
-    <section id="loginScreen" class="screen">
-      <div class="card" style="max-width:360px;margin:40px auto">
-        <h3 class="center">Admin Login</h3>
-        <label>Admin password</label>
-        <input id="adminPass" type="password" placeholder="Password" />
-        <div class="error" id="loginError"></div>
-        <button class="primary" id="loginBtn">Log in</button>
-      </div>
-    </section>
-
-    <!-- Panel -->
-    <section id="panelScreen" class="screen hidden">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <h3>Restaurants</h3>
-        <button class="ghost" id="logoutBtn">Log out</button>
-      </div>
-
-      <div id="restaurantList"></div>
-
-      <div class="card">
-        <h4>Add a restaurant</h4>
-        <div class="grid-2">
-          <div>
-            <label>3-digit code</label>
-            <input id="nCode" maxlength="3" inputmode="numeric" placeholder="481" />
-          </div>
-          <div>
-            <label>Name</label>
-            <input id="nName" placeholder="Restaurant name" />
-          </div>
-        </div>
-        <label>Description</label>
-        <input id="nDesc" placeholder="Short description" />
-        <div class="grid-2">
-          <div>
-            <label>Owner password</label>
-            <input id="nOwnerPass" placeholder="Owner login password" />
-          </div>
-          <div>
-            <label>UPI ID (optional)</label>
-            <input id="nUpi" placeholder="name@upi" />
-          </div>
-        </div>
-        <div class="grid-2">
-          <div>
-            <label>Latitude</label>
-            <input id="nLat" inputmode="decimal" placeholder="12.9716" />
-          </div>
-          <div>
-            <label>Longitude</label>
-            <input id="nLng" inputmode="decimal" placeholder="77.5946" />
-          </div>
-        </div>
-        <div class="grid-2">
-          <div>
-            <label>Radius (metres)</label>
-            <input id="nRadius" inputmode="numeric" placeholder="100" />
-          </div>
-          <div style="display:flex;align-items:flex-end">
-            <button class="ghost" id="useLocBtn" style="width:100%">📍 Use my current location</button>
-          </div>
-        </div>
-        <div class="error" id="addError"></div>
-        <button class="primary" id="addBtn">Create restaurant</button>
-      </div>
-
-      <!-- Sections (grid) editor -->
-      <div id="sectionsEditor" class="card hidden">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <h4 id="sectionsTitle">Menu sections</h4>
-          <button class="ghost" id="closeSections">Close</button>
-        </div>
-        <p class="muted" style="font-size:13px;margin-top:0">
-          Design the section tiles customers tap (e.g. <b>Biryani</b>). Each has a name and a
-          one-line description. The owner then adds dishes into these sections.
+    <section class="screen center">
+      <div class="card" style="max-width:380px;margin:40px auto">
+        <h3>The admin panel has moved</h3>
+        <p class="muted">
+          There's no separate admin panel anymore. Restaurants are created and
+          managed entirely from the owner portal.
         </p>
-        <div id="sectionsList"></div>
-        <div class="grid-2">
-          <div><label>Section name</label><input id="gName" placeholder="e.g. Biryani" /></div>
-          <div><label>One-line description</label><input id="gDesc" placeholder="e.g. Dum-cooked rice specials" /></div>
-        </div>
-        <div class="error" id="sectionsError"></div>
-        <button class="primary" id="addSectionBtn">Add section</button>
-      </div>
-
-      <!-- Menu editor -->
-      <div id="menuEditor" class="card hidden">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <h4 id="menuTitle">Menu</h4>
-          <button class="ghost" id="closeMenu">Close</button>
-        </div>
-        <table>
-          <thead><tr><th>Item</th><th>Price</th><th>Type</th><th>Category</th><th>Available</th><th></th></tr></thead>
-          <tbody id="menuBody"></tbody>
-        </table>
-        <h5 style="margin-top:16px">Add item</h5>
-        <div class="grid-2">
-          <div><label>Name</label><input id="mName" placeholder="Item name" /></div>
-          <div><label>Price</label><input id="mPrice" inputmode="decimal" placeholder="199" /></div>
-        </div>
-        <label>Category</label>
-        <input id="mCategory" placeholder="e.g. Main Course" />
-        <label>Image URL (optional)</label>
-        <input id="mImage" placeholder="https://... (leave blank for a coloured tile)" />
-        <div class="grid-2">
-          <div>
-            <label>Food type</label>
-            <select id="mVeg">
-              <option value="veg">Veg</option>
-              <option value="nonveg">Non-veg</option>
-            </select>
-          </div>
-          <div style="display:flex;align-items:flex-end;padding-bottom:12px">
-            <label style="display:inline;margin:0">
-              <input type="checkbox" id="mSpicy" style="width:auto;margin:0 6px 0 0" /> Spicy
-            </label>
-          </div>
-        </div>
-        <label>Tags (comma separated, optional)</label>
-        <input id="mTags" placeholder="Bestseller, Chef special, Gluten-free" />
-        <div class="error" id="menuError"></div>
-        <button class="primary" id="addItemBtn">Add item</button>
+        <a class="primary" href="/owner.html" style="display:inline-block;text-decoration:none;text-align:center">Go to the owner portal</a>
       </div>
     </section>
   </div>
-
-  <script src="/js/api.js"></script>
-  <script src="/js/admin.js"></script>
+  <script>location.replace('/owner.html');</script>
 </body>
 </html>

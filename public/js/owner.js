@@ -5,8 +5,9 @@
   const money = (n) => '₹' + Number(n).toFixed(0);
   const state = {
     token: null, restaurant: null, orders: [], staff: [], menu: [], history: [], socket: null,
-    newItemImage: '', newSectionImage: '',
+    newItemImage: '', newSectionImage: '', signupLocation: null, started: false,
   };
+  const isSmall = () => state.restaurant && state.restaurant.mode === 'small';
 
   /* ---------------------------- Login ----------------------------- */
   $('loginBtn').addEventListener('click', login);
@@ -23,17 +24,102 @@
       state.restaurant = data.restaurant;
       primeSound();
       requestNotifyPermission();
-      startDashboard();
+      afterAuth();
     } catch (e) {
       $('loginError').textContent = e.message;
     }
   }
 
+  // After login or signup: first-time owners pick a service model; everyone else
+  // goes straight to the dashboard.
+  function afterAuth() {
+    if (!state.restaurant || !state.restaurant.setupComplete) showSetup();
+    else startDashboard();
+  }
+
+  /* --------------------------- Sign up ---------------------------- */
+  function showScreen(id) {
+    ['loginScreen', 'signupScreen', 'setupScreen', 'dashScreen'].forEach((s) =>
+      $(s).classList.toggle('hidden', s !== id)
+    );
+  }
+  $('showSignupBtn').addEventListener('click', () => { $('signupError').textContent = ''; showScreen('signupScreen'); });
+  $('backToLoginBtn').addEventListener('click', () => showScreen('loginScreen'));
+
+  $('suUseLoc').addEventListener('click', async () => {
+    $('suLocStatus').textContent = 'Getting your location…';
+    try {
+      state.signupLocation = await getPosition();
+      $('suLocStatus').textContent = '✓ Location captured (' +
+        state.signupLocation.lat.toFixed(5) + ', ' + state.signupLocation.lng.toFixed(5) + ')';
+    } catch (_) {
+      state.signupLocation = null;
+      $('suLocStatus').textContent = '✗ Could not get location — allow location access and try again.';
+    }
+  });
+
+  $('doSignupBtn').addEventListener('click', async () => {
+    $('signupError').textContent = '';
+    if (!state.signupLocation) return ($('signupError').textContent = 'Tap "Use my current location" first.');
+    try {
+      const data = await API.post('/owner/register', {
+        code: $('suCode').value.trim(),
+        name: $('suName').value.trim(),
+        description: $('suDesc').value.trim(),
+        password: $('suPass').value,
+        radiusMeters: parseInt($('suRadius').value, 10) || undefined,
+        lat: state.signupLocation.lat,
+        lng: state.signupLocation.lng,
+      });
+      state.token = data.token;
+      state.restaurant = data.restaurant;
+      primeSound();
+      requestNotifyPermission();
+      afterAuth(); // new restaurant -> setup screen
+    } catch (e) {
+      $('signupError').textContent = e.message;
+    }
+  });
+
+  /* ---------------------- Setup (service model) ------------------- */
+  function showSetup() { showScreen('setupScreen'); }
+  async function chooseMode(mode) {
+    $('setupError').textContent = '';
+    try {
+      const data = await API.patch('/owner/setup', { mode }, state.token);
+      state.restaurant = data.restaurant;
+      startDashboard();
+    } catch (e) {
+      $('setupError').textContent = e.message;
+    }
+  }
+  $('modeFull').addEventListener('click', () => chooseMode('full'));
+  $('modeSmall').addEventListener('click', () => chooseMode('small'));
+
+  // Hide waiter-specific controls when the restaurant runs the small model.
+  function applyModeUI() {
+    const small = isSmall();
+    const waiterOpt = $('sRoleWaiter');
+    if (waiterOpt) {
+      waiterOpt.classList.toggle('hidden', small);
+      waiterOpt.disabled = small;
+      if (small && $('sRole').value === 'waiter') $('sRole').value = 'kitchen';
+    }
+    const help = $('staffHelp');
+    if (help) {
+      help.innerHTML = small
+        ? 'Kitchen staff log in at <b>/kitchen.html</b> with the restaurant code + these credentials. This model has no waiters.'
+        : 'Waiters log in at <b>/waiter.html</b>, kitchen at <b>/kitchen.html</b> with the restaurant code + these credentials.';
+    }
+  }
+
   async function startDashboard() {
-    $('loginScreen').classList.add('hidden');
-    $('dashScreen').classList.remove('hidden');
+    showScreen('dashScreen');
     $('rName').textContent = state.restaurant.name;
     $('rCode').textContent = state.restaurant.code;
+    applyModeUI();
+    if (state.started) return; // avoid double socket/interval if re-entered
+    state.started = true;
     const data = await API.get('/owner/orders', state.token);
     state.orders = data.orders;
     renderAll();
@@ -90,7 +176,7 @@
       renderAll();
       flash(o.id);
       beep();
-      notify('New order', 'Table ' + o.tableNumber + ' · ' + money(o.total));
+      notify('New order', (o.tableNumber != null ? 'Table ' + o.tableNumber : 'Order #' + o.id.slice(0, 6)) + ' · ' + money(o.total));
       if (!$('analyticsView').classList.contains('hidden')) loadAnalytics();
     });
     socket.on('order:update', (o) => {
@@ -128,7 +214,7 @@
       (o.assignedWaiterName ? ' · 🧑‍💼 ' + esc(o.assignedWaiterName) : ' · <i>unassigned</i>');
     return makeOrderRow({
       id: o.id,
-      title: 'Table ' + (o.tableNumber != null ? o.tableNumber : '?'),
+      title: o.tableNumber != null ? 'Table ' + o.tableNumber : 'Order #' + o.id.slice(0, 6),
       sub: sub,
       statusText: o.status,
       statusClass: '',
@@ -283,9 +369,18 @@
 
   /* --------------------------- Settings --------------------------- */
   function loadSettings() {
+    $('setMode').value = isSmall() ? 'small' : 'full';
     $('setTables').value = state.restaurant.tables || '';
     renderQRs();
   }
+  $('saveModeBtn').addEventListener('click', async () => {
+    try {
+      const data = await API.patch('/owner/setup', { mode: $('setMode').value }, state.token);
+      state.restaurant = data.restaurant;
+      applyModeUI();
+      alert('Service model saved.');
+    } catch (e) { alert(e.message); }
+  });
   $('saveTablesBtn').addEventListener('click', async () => {
     try {
       const data = await API.patch('/owner/settings', { tables: parseInt($('setTables').value, 10) || 0 }, state.token);

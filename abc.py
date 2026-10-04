@@ -33,8 +33,8 @@ USAGE
   DOC_PATH   : the .docx to read. Default: Update-2026.docx next to this
                script, then in TARGET_DIR, then in the current directory.
 
-    python apply-update.py                         # cwd + ./Update-2026.docx
-    python apply-update.py "C:\proj"               # write into C:\proj
+    python apply-update.py                        # cwd + ./Update-2026.docx
+    python apply-update.py "C:\proj"              # write into C:\proj
     python apply-update.py "C:\proj" "C:\d\U.docx" # explicit doc
 """
 import base64

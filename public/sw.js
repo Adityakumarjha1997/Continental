@@ -6,7 +6,7 @@
    The cache name is versioned — bump it whenever the shell changes so old
    caches are purged on activate. This is the fix for "my changes don't show up
    after an update": network-first + a version bump guarantee fresh code online. */
-const CACHE = 'avenza-v3-dinein';
+const CACHE = 'avenza-v4-selfservice';
 const SHELL = [
   '/',
   '/index.html',
@@ -18,7 +18,6 @@ const SHELL = [
   '/js/api.js',
   '/js/customer.js',
   '/js/owner.js',
-  '/js/admin.js',
   '/js/waiter.js',
   '/js/kitchen.js',
   '/icon.svg',

@@ -57,9 +57,20 @@ function publicRestaurant(r) {
     // Dine-in additions:
     tables: Number(r.tables) || 0,
     paymentQRs: Array.isArray(r.paymentQRs) ? r.paymentQRs : [],
-    // Menu "sections" (grid tiles) designed by admin; dishes reference a grid id.
+    // Menu "sections" (grid tiles) owners design; dishes reference a grid id.
     grids: Array.isArray(r.grids) ? r.grids : [],
+    // Self-service setup (replaces the admin panel): which service model the
+    // owner picked, and whether they have finished first-run setup.
+    //   'full'  -> owner + waiter + kitchen (restaurant)
+    //   'small' -> owner + kitchen only, no waiter (tea shop / counter)
+    mode: r.mode === 'small' ? 'small' : 'full',
+    setupComplete: !!r.setupComplete,
   };
+}
+
+/** True if this restaurant runs the waiter-less (owner + kitchen) model. */
+function isSmallMode(r) {
+  return r && r.mode === 'small';
 }
 
 /**
@@ -162,27 +173,35 @@ async function createOrder({ restaurantCode, items, customer, location, tableNum
     throw httpError(`You must be within ${radius}m of the restaurant to order`, 403);
   }
 
-  // 2. Table number — must be valid and not already occupied by a live order.
+  // 2. Table number. Required only when the restaurant actually has tables; a
+  //    tea shop / counter place (tables = 0) takes orders without one.
   const tableCount = Number(restaurant.tables) || 0;
-  const table = parseInt(tableNumber, 10);
-  if (!table || table < 1 || (tableCount && table > tableCount)) {
-    throw httpError('Please select a valid table number', 400);
-  }
-  // A table is "occupied" only for OTHER guests. The same signed-in customer may
-  // place additional orders on their own table (multiple rounds).
-  const uid = customer && customer.uid;
-  const activeOnTable = orderRepo.activeOrdersByTable(String(restaurantCode), table);
-  const allMine = activeOnTable.length > 0 &&
-    activeOnTable.every((o) => o.customer && o.customer.uid && o.customer.uid === uid);
-  if (activeOnTable.length && !allMine) {
-    throw httpError(`Table ${table} is currently occupied by another guest. Please pick another table or ask staff.`, 409);
+  let table = null;
+  if (tableCount) {
+    table = parseInt(tableNumber, 10);
+    if (!table || table < 1 || table > tableCount) {
+      throw httpError('Please select a valid table number', 400);
+    }
+    // A table is "occupied" only for OTHER guests. The same signed-in customer
+    // may place additional orders on their own table (multiple rounds).
+    const uid = customer && customer.uid;
+    const activeOnTable = orderRepo.activeOrdersByTable(String(restaurantCode), table);
+    const allMine = activeOnTable.length > 0 &&
+      activeOnTable.every((o) => o.customer && o.customer.uid && o.customer.uid === uid);
+    if (activeOnTable.length && !allMine) {
+      throw httpError(`Table ${table} is currently occupied by another guest. Please pick another table or ask staff.`, 409);
+    }
   }
 
   // 3. Rebuild the cart from trusted server data (prices from the DB).
   const { lineItems, total } = priceItems(restaurantCode, items);
 
-  // Round-robin assignment to an on-shift waiter (null => unassigned pool).
-  const waiter = assignment.nextWaiter(String(restaurantCode));
+  // Waiter assignment only applies in the full (waiter + kitchen) model. In the
+  // small (owner + kitchen) model there are no waiters, so the order goes
+  // straight to the kitchen queue unassigned.
+  const waiter = isSmallMode(restaurant)
+    ? null
+    : assignment.nextWaiter(String(restaurantCode));
 
   const order = await orderRepo.create({
     restaurantCode: String(restaurantCode),
@@ -288,6 +307,7 @@ module.exports = {
   publicRestaurant,
   publicOrderView,
   staffOrderView,
+  isSmallMode,
   ORDER_STATUSES,
   PAYMENT_METHODS,
 };

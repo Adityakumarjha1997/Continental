@@ -32,6 +32,10 @@
   const PKEY = 'avenza_phone';
   const $ = (id) => document.getElementById(id);
   const money = (n) => '₹' + Number(n).toFixed(0);
+  // Small (owner + kitchen) model: no waiter, and usually no tables. The customer
+  // pays and then quotes the Order ID at the counter; the kitchen closes it.
+  const isSmall = () => state.restaurant && state.restaurant.mode === 'small';
+  const hasTables = () => Number(state.restaurant && state.restaurant.tables) > 0;
 
   /* ---------------------------- Login ----------------------------- */
   function setSession(token, username) {
@@ -351,7 +355,17 @@
       cartLines().map((l) => '<div class="menu-item"><span>' + esc(l.name) + ' × ' + l.qty +
         '</span><strong>' + money(l.price * l.qty) + '</strong></div>').join('') +
       '<div class="menu-item"><strong>Total</strong><strong>' + money(cartTotal()) + '</strong></div>';
-    populateTables();
+    // Table picker only when the restaurant actually has tables (a counter / tea
+    // shop has none). Otherwise skip straight to placing the order.
+    if (hasTables()) {
+      $('tableRow').classList.remove('hidden');
+      populateTables();
+    } else {
+      $('tableRow').classList.add('hidden');
+    }
+    $('checkoutNote').textContent = isSmall()
+      ? 'After you place the order, pay at the counter and quote your Order ID.'
+      : "Pay at the table after you're served — cash or UPI QR.";
     show('checkoutScreen');
   }
   $('backToMenu').addEventListener('click', () => show('menuScreen'));
@@ -359,8 +373,11 @@
 
   $('payBtn').addEventListener('click', async () => {
     $('checkoutError').textContent = '';
-    const tableNumber = parseInt($('tableSelect').value, 10);
-    if (!tableNumber) return ($('checkoutError').textContent = 'Please select your table number');
+    let tableNumber = null;
+    if (hasTables()) {
+      tableNumber = parseInt($('tableSelect').value, 10);
+      if (!tableNumber) return ($('checkoutError').textContent = 'Please select your table number');
+    }
 
     $('payBtn').disabled = true;
     try {
@@ -384,6 +401,7 @@
 
   /* ----------------------- Live order tracking -------------------- */
   const STEPS = ['placed', 'confirmed', 'preparing', 'ready', 'served', 'closed'];
+  const SMALL_STEPS = ['placed', 'preparing', 'closed'];
   const STEP_LABELS = {
     placed: 'Order placed',
     confirmed: 'Confirmed by waiter',
@@ -392,11 +410,25 @@
     served: 'Served',
     closed: 'Paid · thank you!',
   };
+  // Small (owner + kitchen) model has a shorter lifecycle and no waiter wording.
+  const SMALL_LABELS = {
+    placed: 'Order placed',
+    preparing: 'In the kitchen',
+    closed: 'Served · thank you!',
+  };
+  const stepsFor = () => (isSmall() ? SMALL_STEPS : STEPS);
+  const labelFor = (s) => (isSmall() ? SMALL_LABELS[s] : STEP_LABELS[s]) || s;
 
   function renderTrackCard(o) {
+    // In the small model the customer quotes this Order ID at the counter, so show
+    // it big and clear.
+    const idBlock = isSmall()
+      ? '<div class="muted">Your Order ID — quote this at the counter</div>' +
+        '<div class="order-id-big">#' + o.id.slice(0, 6).toUpperCase() + '</div>'
+      : '<div class="muted">Table</div><div><strong>' + esc(String(o.tableNumber != null ? o.tableNumber : '—')) + '</strong></div>' +
+        '<div class="muted" style="margin-top:8px">Order</div><div>#' + o.id.slice(0, 8) + '</div>';
     $('trackCard').innerHTML =
-      '<div class="muted">Table</div><div><strong>' + esc(String(o.tableNumber != null ? o.tableNumber : '—')) + '</strong></div>' +
-      '<div class="muted" style="margin-top:8px">Order</div><div>#' + o.id.slice(0, 8) + '</div>' +
+      idBlock +
       '<div class="muted" style="margin-top:8px">Total</div><div>' + money(o.total) + '</div>' +
       (o.assignedWaiterName ? '<div class="muted" style="margin-top:8px">Your waiter</div><div>' + esc(o.assignedWaiterName) + '</div>' : '');
   }
@@ -404,10 +436,15 @@
   function renderTimeline(status) {
     const tl = $('trackTimeline');
     if (status === 'cancelled') { tl.innerHTML = '<div class="banner danger">This order was cancelled.</div>'; return; }
-    const idx = STEPS.indexOf(status);
-    tl.innerHTML = STEPS.map((s, i) => {
+    const steps = stepsFor();
+    // Served (full model) collapses onto the final "closed" step for small model.
+    let idx = steps.indexOf(status);
+    if (idx === -1 && isSmall() && (status === 'confirmed' || status === 'ready' || status === 'served')) {
+      idx = steps.indexOf(status === 'confirmed' ? 'placed' : 'preparing');
+    }
+    tl.innerHTML = steps.map((s, i) => {
       const cls = i < idx ? 'done' : i === idx ? 'active' : '';
-      return '<div class="timeline-step ' + cls + '"><span class="dot"></span><span class="lbl">' + STEP_LABELS[s] + '</span></div>';
+      return '<div class="timeline-step ' + cls + '"><span class="dot"></span><span class="lbl">' + labelFor(s) + '</span></div>';
     }).join('');
   }
 
@@ -422,11 +459,16 @@
       panel.innerHTML = '<div class="banner ok">Paid' + (o.paymentMethod ? ' via ' + esc(o.paymentMethod) : '') + '. Thank you!</div>';
       return;
     }
-    if (o.status === 'ready' || o.status === 'served') {
+    // Full model: pay once the food is on its way (ready/served). Small model:
+    // pay at the counter straight after placing (placed/preparing).
+    const canPay = isSmall()
+      ? (o.status === 'placed' || o.status === 'preparing')
+      : (o.status === 'ready' || o.status === 'served');
+    if (canPay) {
       const r = state.restaurant || {};
       const qrs = r.paymentQRs || [];
       const upiId = r.upiId || (qrs.find((q) => q.upiId) || {}).upiId || '';
-      const note = 'Table ' + o.tableNumber + ' #' + o.id.slice(0, 6);
+      const note = (o.tableNumber != null ? 'Table ' + o.tableNumber + ' ' : '') + '#' + o.id.slice(0, 6);
 
       const appBtns = upiId
         ? '<div class="pay-apps">' +
@@ -437,12 +479,16 @@
           '<a class="pay-app anyupi" href="' + esc(upiLink('upi://pay?', upiId, r.name, o.total, note)) + '">Any UPI app</a>' +
           '</div>' +
           '<div class="muted" style="font-size:11px;margin-top:6px">Paying to ' + esc(upiId) + ' · opens your UPI app on a phone</div>'
-        : '<div class="banner warn">Ask your waiter for payment details.</div>';
+        : '<div class="banner warn">' + (isSmall() ? 'Pay at the counter — cash or UPI.' : 'Ask your waiter for payment details.') + '</div>';
 
       panel.classList.remove('hidden');
       panel.innerHTML =
         '<h4>Pay ' + money(o.total) + '</h4>' +
-        '<p class="muted" style="font-size:13px;margin-top:0">Pay with a UPI app — or pay cash. Your waiter confirms and closes the bill.</p>' +
+        '<p class="muted" style="font-size:13px;margin-top:0">' +
+        (isSmall()
+          ? 'Pay with a UPI app or cash at the counter, then quote your Order ID. The kitchen closes your order once served.'
+          : 'Pay with a UPI app — or pay cash. Your waiter confirms and closes the bill.') +
+        '</p>' +
         appBtns;
       return;
     }
@@ -453,6 +499,9 @@
     state.currentOrder = order;
     state.orderToken = token;
     saveHistory(order, token);
+    $('trackHint').textContent = isSmall()
+      ? 'Pay at the counter and quote your Order ID — this updates live.'
+      : 'Your waiter has been notified — this updates live.';
     renderTrackCard(order);
     renderTimeline(order.status);
     renderPayPanel(order);

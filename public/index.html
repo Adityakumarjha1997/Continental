@@ -115,11 +115,13 @@
       <button class="ic ic-sm" id="backToMenu" data-icon="back" aria-label="Back to menu"></button>
       <h3>Your order</h3>
       <div id="checkoutItems" class="card"></div>
-      <label>Your table number <span id="tableHint" class="muted"></span></label>
-      <select id="tableSelect"></select>
+      <div id="tableRow">
+        <label>Your table number <span id="tableHint" class="muted"></span></label>
+        <select id="tableSelect"></select>
+      </div>
       <div class="error" id="checkoutError"></div>
       <button class="primary" id="payBtn">Place order</button>
-      <p class="muted center" style="font-size:12px">Pay at the table after you're served — cash or UPI QR.</p>
+      <p class="muted center" id="checkoutNote" style="font-size:12px">Pay at the table after you're served — cash or UPI QR.</p>
     </section>
 
     <!-- STEP 4: live tracking (shown after a successful order) -->
