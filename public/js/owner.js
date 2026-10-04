@@ -96,7 +96,7 @@
   $('modeFull').addEventListener('click', () => chooseMode('full'));
   $('modeSmall').addEventListener('click', () => chooseMode('small'));
 
-  // Hide waiter-specific controls when the restaurant runs the small model.
+  // Hide controls that don't apply to the small (owner + kitchen) model.
   function applyModeUI() {
     const small = isSmall();
     const waiterOpt = $('sRoleWaiter');
@@ -105,12 +105,20 @@
       waiterOpt.disabled = small;
       if (small && $('sRole').value === 'waiter') $('sRole').value = 'kitchen';
     }
+    // Staff help line: hide entirely in small mode (it only confuses the owner);
+    // show the full waiter + kitchen hint in full mode.
     const help = $('staffHelp');
     if (help) {
-      help.innerHTML = small
-        ? 'Kitchen staff log in at <b>/kitchen.html</b> with the restaurant code + these credentials. This model has no waiters.'
-        : 'Waiters log in at <b>/waiter.html</b>, kitchen at <b>/kitchen.html</b> with the restaurant code + these credentials.';
+      help.classList.toggle('hidden', small);
+      if (!small) {
+        help.innerHTML = 'Waiters log in at <b>/waiter.html</b>, kitchen at <b>/kitchen.html</b> with the restaurant code + these credentials.';
+      }
     }
+    // Service model + Tables settings aren't relevant to a small counter shop.
+    const svc = $('serviceModelCard');
+    if (svc) svc.classList.toggle('hidden', small);
+    const tbl = $('tablesCard');
+    if (tbl) tbl.classList.toggle('hidden', small);
   }
 
   async function startDashboard() {
@@ -210,8 +218,22 @@
   function card(o) {
     const payText = o.paymentStatus === 'paid'
       ? 'paid' + (o.paymentMethod ? ' · ' + o.paymentMethod : '') : 'unpaid';
-    const sub = esc(o.customer.name || 'Guest') + ' · ' + timeAgo(o.createdAt) +
-      (o.assignedWaiterName ? ' · 🧑‍💼 ' + esc(o.assignedWaiterName) : ' · <i>unassigned</i>');
+    // No waiter concept in the small model, so skip the assigned/unassigned note.
+    const waiterNote = isSmall() ? '' : (o.assignedWaiterName ? ' · 🧑‍💼 ' + esc(o.assignedWaiterName) : ' · <i>unassigned</i>');
+    const sub = esc(o.customer.name || 'Guest') + ' · ' + timeAgo(o.createdAt) + waiterNote;
+    const actions = [];
+    // Small model: the owner verifies the UPI/cash payment and marks it paid,
+    // which lets the kitchen close it.
+    if (isSmall() && o.paymentStatus !== 'paid') {
+      actions.push({
+        label: 'Mark paid', cls: 'primary',
+        onClick: () => { if (confirm('Confirm payment received for this order?')) markPaid(o.id); },
+      });
+    }
+    actions.push({
+      label: 'Cancel', cls: 'ghost',
+      onClick: () => { if (confirm('Cancel this order?')) updateStatus(o.id, 'cancelled'); },
+    });
     return makeOrderRow({
       id: o.id,
       title: o.tableNumber != null ? 'Table ' + o.tableNumber : 'Order #' + o.id.slice(0, 6),
@@ -222,10 +244,7 @@
       extraDetailHtml:
         '<div style="margin:6px 0"><strong>' + money(o.total) + '</strong> · ' +
         '<span class="pill ' + (o.paymentStatus === 'paid' ? 'paid' : 'pending') + '">' + payText + '</span></div>',
-      actions: [{
-        label: 'Cancel', cls: 'ghost',
-        onClick: () => { if (confirm('Cancel this order?')) updateStatus(o.id, 'cancelled'); },
-      }],
+      actions: actions,
     });
   }
 
@@ -291,6 +310,14 @@
     } catch (e) { alert(e.message); }
   }
 
+  // Small model: owner confirms a payment; the live refresh/socket updates the board.
+  async function markPaid(id) {
+    try {
+      await API.post('/owner/orders/' + id + '/pay', { method: 'upi' }, state.token);
+      refreshOrders();
+    } catch (e) { alert(e.message); }
+  }
+
   /* -------------------------- Analytics --------------------------- */
   async function loadAnalytics() {
     try {
@@ -336,10 +363,16 @@
       const el = document.createElement('div');
       el.className = 'card';
       el.style.padding = '14px 16px';
+      // Show a live status pill for both roles: waiters "on shift/off", kitchen
+      // "online/offline" (a cook is online once they have logged in).
+      const statusLabel = s.onShift
+        ? (s.role === 'waiter' ? 'on shift' : 'online')
+        : (s.role === 'waiter' ? 'off' : 'offline');
+      const statusPill = ' <span class="pill ' + (s.onShift ? 'paid' : 'pending') + '">' + statusLabel + '</span>';
       el.innerHTML =
         '<div style="display:flex;justify-content:space-between;align-items:center">' +
         '<div><strong>' + esc(s.name) + '</strong> <span class="pill">' + esc(s.role) + '</span>' +
-        (s.role === 'waiter' ? ' <span class="pill ' + (s.onShift ? 'paid' : 'pending') + '">' + (s.onShift ? 'on shift' : 'off') + '</span>' : '') +
+        statusPill +
         '<div class="muted" style="font-size:12px;margin-top:4px">@' + esc(s.username) + '</div></div>' +
         '<div></div></div>';
       const b = document.createElement('button');
@@ -371,8 +404,16 @@
   function loadSettings() {
     $('setMode').value = isSmall() ? 'small' : 'full';
     $('setTables').value = state.restaurant.tables || '';
+    $('setUpi').value = state.restaurant.upiId || '';
     renderQRs();
   }
+  $('saveUpiBtn').addEventListener('click', async () => {
+    try {
+      const data = await API.patch('/owner/settings', { upiId: $('setUpi').value.trim() }, state.token);
+      state.restaurant = data.restaurant;
+      alert('UPI ID saved. Customers will see a QR generated from it.');
+    } catch (e) { alert(e.message); }
+  });
   $('saveModeBtn').addEventListener('click', async () => {
     try {
       const data = await API.patch('/owner/setup', { mode: $('setMode').value }, state.token);

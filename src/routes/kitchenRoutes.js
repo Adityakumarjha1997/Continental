@@ -9,15 +9,19 @@ const staffRepo = require('../repositories/staffRepository');
 const orderService = require('../services/orderService');
 const authService = require('../services/authService');
 const { requireKitchen } = require('../middleware/auth');
-const { pushOrder } = require('../realtime/socket');
+const { pushOrder, pushStaff } = require('../realtime/socket');
 
 /** Kitchen login: restaurant code + username + password (owner-created). */
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { code, username, password } = req.body || {};
   const staff = staffRepo.findLogin(code, username, 'kitchen');
   if (!staff || !authService.verifyPassword(password || '', staff.passwordHash)) {
     return res.status(401).json({ error: 'Invalid code, username or password' });
   }
+  // Clock the cook on so the owner's Staff tab shows them as online (same idea as
+  // a waiter going on-shift).
+  await staffRepo.update(staff.id, { onShift: true });
+  pushStaff(req.app.get('io'), code);
   const restaurant = restaurantRepo.findByCode(code);
   const token = authService.signToken({ role: 'kitchen', code: String(code), sid: staff.id, name: staff.name });
   res.json({
@@ -90,8 +94,9 @@ router.patch('/orders/:id/ready', requireKitchen, async (req, res, next) => {
 });
 
 /**
- * Small-model only: the kitchen serves the order itself and closes it (there is
- * no waiter to hand off to). Marks it paid and closed in one step.
+ * Small-model only: the kitchen serves the order and closes it (there is no
+ * waiter to hand off to). The owner confirms payment first, so the kitchen can
+ * only close an order the owner has already marked paid.
  */
 router.post('/orders/:id/close', requireKitchen, async (req, res, next) => {
   try {
@@ -104,8 +109,11 @@ router.post('/orders/:id/close', requireKitchen, async (req, res, next) => {
     if (!['placed', 'confirmed', 'preparing'].includes(order.status)) {
       return res.status(409).json({ error: 'This order is already closed' });
     }
-    const method = orderService.PAYMENT_METHODS.includes(req.body.method) ? req.body.method : 'cash';
-    const updated = await orderService.settleOrder(order.id, method);
+    if (order.paymentStatus !== 'paid') {
+      return res.status(409).json({ error: 'Waiting for the owner to confirm payment before this can be closed' });
+    }
+    // Keep the payment method the owner recorded; just serve + close the order.
+    const updated = await orderService.updateStatus(order.id, 'closed');
     pushOrder(req.app.get('io'), updated);
     res.json({ order: orderService.staffOrderView(updated) });
   } catch (e) {

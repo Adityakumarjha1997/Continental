@@ -113,20 +113,28 @@
 
   function card(o) {
     const actions = [];
+    const paid = o.paymentStatus === 'paid';
     if (isSmall()) {
-      // Small model: start cooking, then serve & close (no waiter hand-off).
-      if (o.status === 'placed') actions.push({ label: 'Start cooking', cls: 'ghost', onClick: () => act(o.id, 'start') });
-      actions.push({ label: 'Served & close', cls: 'primary', onClick: () => act(o.id, 'close', 'POST') });
+      // Small model: no "start cooking" step. The owner confirms payment first;
+      // only then can the kitchen serve & close. Before that, just show it's
+      // waiting for the owner to confirm payment.
+      if (paid) {
+        actions.push({ label: 'Served & close', cls: 'primary', onClick: () => act(o.id, 'close', 'POST') });
+      }
     } else {
       if (o.status === 'confirmed') actions.push({ label: 'Start cooking', cls: 'ghost', onClick: () => act(o.id, 'start') });
       actions.push({ label: 'Mark ready', cls: 'primary', onClick: () => act(o.id, 'ready') });
     }
     const title = o.tableNumber != null ? 'Table ' + o.tableNumber : 'Order #' + o.id.slice(0, 6);
+    // Status shown on the card: in the small model, surface the payment state
+    // clearly so the cook knows when they can close it.
+    const statusText = isSmall() ? (paid ? 'paid · cooking' : 'awaiting payment') : o.status;
     return makeOrderRow({
       id: o.id,
       title: title,
       sub: timeAgo(o.createdAt) + ' · ' + esc(o.customer && o.customer.name ? o.customer.name : 'Guest'),
-      statusText: o.status,
+      statusText: statusText,
+      statusClass: isSmall() ? (paid ? 'paid' : 'pending') : '',
       items: o.items,
       actions: actions,
     });

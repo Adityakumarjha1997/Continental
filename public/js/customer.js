@@ -364,8 +364,8 @@
       $('tableRow').classList.add('hidden');
     }
     $('checkoutNote').textContent = isSmall()
-      ? 'After you place the order, pay at the counter and quote your Order ID.'
-      : "Pay at the table after you're served — cash or UPI QR.";
+      ? 'After you place the order, pay with your UPI app (or cash at the counter).'
+      : "Pay at the table after you're served — UPI app or cash.";
     show('checkoutScreen');
   }
   $('backToMenu').addEventListener('click', () => show('menuScreen'));
@@ -452,6 +452,21 @@
     return scheme + 'pa=' + encodeURIComponent(upiId) + '&pn=' + encodeURIComponent(name || 'Restaurant') +
       '&am=' + Number(amount) + '&cu=INR&tn=' + encodeURIComponent(note);
   }
+
+  /* Branded UPI-app buttons built from a UPI ID. Each deep-links into that app's
+     payment page with payee/amount/note prefilled. Used on both service models. */
+  function payAppsHtml(upiId, r, amount, note) {
+    const href = (scheme) => esc(upiLink(scheme, upiId, r.name, amount, note));
+    const app = (cls, scheme, logo, label) =>
+      '<a class="pay-app ' + cls + '" href="' + href(scheme) + '">' + logo + '<span>' + label + '</span></a>';
+    return '<div class="pay-apps">' +
+      app('gpay', 'tez://upi/pay?', '<span class="pa-logo">' + GOOGLE_G + '</span>', 'Google Pay') +
+      app('phonepe', 'phonepe://pay?', '<span class="pa-logo pe">Pe</span>', 'PhonePe') +
+      app('paytm', 'paytmmp://pay?', '<span class="pa-logo pt">P</span>', 'Paytm') +
+      app('anyupi', 'upi://pay?', '<span class="pa-logo upi">UPI</span>', 'Any UPI app') +
+      '</div>' +
+      '<div class="muted" style="font-size:11px;margin-top:6px">Paying to ' + esc(upiId) + ' · opens the app on your phone</div>';
+  }
   function renderPayPanel(o) {
     const panel = $('payPanel');
     if (o.paymentStatus === 'paid') {
@@ -470,26 +485,37 @@
       const upiId = r.upiId || (qrs.find((q) => q.upiId) || {}).upiId || '';
       const note = (o.tableNumber != null ? 'Table ' + o.tableNumber + ' ' : '') + '#' + o.id.slice(0, 6);
 
-      const appBtns = upiId
-        ? '<div class="pay-apps">' +
-          '<a class="pay-app gpay" href="' + esc(upiLink('tez://upi/pay?', upiId, r.name, o.total, note)) + '">' +
-            '<span class="pa-logo">' + GOOGLE_G + '</span>Pay with GPay</a>' +
-          '<a class="pay-app phonepe" href="' + esc(upiLink('phonepe://pay?', upiId, r.name, o.total, note)) + '">' +
-            '<span class="pa-logo pe">Pe</span>Pay with PhonePe</a>' +
-          '<a class="pay-app anyupi" href="' + esc(upiLink('upi://pay?', upiId, r.name, o.total, note)) + '">Any UPI app</a>' +
-          '</div>' +
-          '<div class="muted" style="font-size:11px;margin-top:6px">Paying to ' + esc(upiId) + ' · opens your UPI app on a phone</div>'
-        : '<div class="banner warn">' + (isSmall() ? 'Pay at the counter — cash or UPI.' : 'Ask your waiter for payment details.') + '</div>';
+      // Branded UPI app buttons built from the restaurant's UPI ID. Tapping one
+      // deep-links into that app with the payee, amount and note prefilled, so the
+      // customer lands on the app's payment page and just confirms. Same on both
+      // service models — only the surrounding flow differs.
+      const appBtns = upiId ? payAppsHtml(upiId, r, o.total, note) : '';
+
+      // Any QR image the owner uploaded is still shown as an extra scan option.
+      const qrImgs = qrs.filter((q) => q.imageUrl);
+      const qrBlock = qrImgs.length
+        ? '<div class="pay-qrs">' + qrImgs.map((q) =>
+            '<div class="pay-qr"><img src="' + esc(q.imageUrl) + '" alt="UPI QR code" />' +
+            '<div class="muted" style="font-size:11px">' + esc(q.label || 'Scan to pay') +
+            (q.upiId ? ' · ' + esc(q.upiId) : '') + '</div></div>').join('') + '</div>'
+        : '';
+
+      // Fall back to a plain message only if the owner set up neither a UPI ID nor a QR.
+      const fallback = (!appBtns && !qrBlock)
+        ? '<div class="banner warn">' + (isSmall()
+            ? 'Show your Order ID at the counter to pay by cash or UPI.'
+            : 'Ask your waiter for payment details.') + '</div>'
+        : '';
 
       panel.classList.remove('hidden');
       panel.innerHTML =
         '<h4>Pay ' + money(o.total) + '</h4>' +
         '<p class="muted" style="font-size:13px;margin-top:0">' +
         (isSmall()
-          ? 'Pay with a UPI app or cash at the counter, then quote your Order ID. The kitchen closes your order once served.'
-          : 'Pay with a UPI app — or pay cash. Your waiter confirms and closes the bill.') +
+          ? 'Tap your UPI app to pay. Once the owner confirms your payment, the kitchen prepares and serves your order.'
+          : 'Tap your UPI app to pay — or pay cash. Your waiter confirms and closes the bill.') +
         '</p>' +
-        appBtns;
+        appBtns + qrBlock + fallback;
       return;
     }
     panel.classList.add('hidden');
@@ -500,7 +526,7 @@
     state.orderToken = token;
     saveHistory(order, token);
     $('trackHint').textContent = isSmall()
-      ? 'Pay at the counter and quote your Order ID — this updates live.'
+      ? 'Pay with your UPI app — the owner confirms it, then the kitchen serves your order.'
       : 'Your waiter has been notified — this updates live.';
     renderTrackCard(order);
     renderTimeline(order.status);

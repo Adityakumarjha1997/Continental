@@ -244,7 +244,7 @@
 
       <!-- Settings -->
       <div id="settingsView" class="hidden">
-        <div class="card">
+        <div class="card" id="serviceModelCard">
           <h4>Service model</h4>
           <p class="muted" style="font-size:13px;margin-top:0">
             Switch between a full waiter + kitchen restaurant and a small owner + kitchen counter.
@@ -262,16 +262,25 @@
             </div>
           </div>
         </div>
-        <div class="card">
+        <div class="card" id="tablesCard">
           <h4>Tables</h4>
           <label>Number of tables (customers pick their table number when ordering)</label>
           <input id="setTables" type="number" min="0" max="500" placeholder="e.g. 12" />
           <button class="primary" id="saveTablesBtn">Save tables</button>
         </div>
         <div class="card">
-          <h4>Payment QR codes</h4>
+          <h4>UPI payment</h4>
           <p class="muted" style="font-size:13px;margin-top:0">
-            Saved UPI QR codes shown to the customer at settlement. Add as many as you like.
+            Enter your UPI ID and customers can pay via Google Pay, PhonePe, Paytm or any UPI app — the amount is prefilled. No image needed.
+          </p>
+          <label>UPI ID</label>
+          <input id="setUpi" placeholder="name@bank" />
+          <button class="primary" id="saveUpiBtn">Save UPI ID</button>
+        </div>
+        <div class="card">
+          <h4>Payment QR codes (optional)</h4>
+          <p class="muted" style="font-size:13px;margin-top:0">
+            Prefer to also show a scannable QR image? Add one or more here. The UPI app buttons (from your UPI ID above) are always shown.
           </p>
           <div id="qrList"></div>
           <div class="grid-2">

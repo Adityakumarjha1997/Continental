@@ -165,6 +165,29 @@ router.patch('/orders/:id', requireOwner, async (req, res, next) => {
   }
 });
 
+/**
+ * Small-model payment confirmation. The customer pays by UPI (or cash) at the
+ * counter; the owner verifies it and marks the order paid. This moves it into the
+ * kitchen's cooking state and unlocks the kitchen's "Serve & close" action.
+ */
+router.post('/orders/:id/pay', requireOwner, async (req, res, next) => {
+  try {
+    const order = orderRepo.findById(req.params.id);
+    if (!order || order.restaurantCode !== req.owner.code) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    const method = orderService.PAYMENT_METHODS.includes(req.body.method) ? req.body.method : 'upi';
+    const patch = { paymentStatus: 'paid', paymentMethod: method };
+    // Once paid, hand it to the kitchen to cook (if it was still freshly placed).
+    if (order.status === 'placed') patch.status = 'preparing';
+    const updated = await orderRepo.update(order.id, patch);
+    pushOrder(req.app.get('io'), updated);
+    res.json({ order: orderService.staffOrderView(updated) });
+  } catch (e) {
+    next(e);
+  }
+});
+
 /* ------------------------------- Staff --------------------------------- */
 /* Owners manage their own waiters + kitchen accounts. */
 
@@ -225,6 +248,11 @@ router.patch('/settings', requireOwner, async (req, res, next) => {
         return res.status(400).json({ error: 'Tables must be a number between 0 and 500' });
       }
       patch.tables = t;
+    }
+    // Restaurant-level UPI ID. A scannable QR is generated from this on the
+    // customer pay page, so the owner can enable UPI with just the ID.
+    if (req.body.upiId != null) {
+      patch.upiId = String(req.body.upiId).slice(0, 120).trim();
     }
     if (req.body.paymentQRs != null) {
       if (!Array.isArray(req.body.paymentQRs)) {
